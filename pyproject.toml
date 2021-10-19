@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "empkins-micro"
+version = "0.1.0"
+description = "A Python package to analyze EmpkinS Micro data."
+authors = ["Robert Richer <robert.richer@fau.de>"]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.10"
+librosa = "^0.8.1"
+biopsykit = {path = "../../../BioPsyKit", develop = true, extras = ["mne", "jupyter"]}
+empkins-io = {path = "../empkins_io", develop = true}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+doit = "^0.33.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
