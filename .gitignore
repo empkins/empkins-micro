@@ -1,3 +1,6 @@
+# ignore config.json used to specify local paths and settings
+config.json
+
 # ignore poetry.lock file for library
 poetry.lock
 
