@@ -59,3 +59,4 @@ lint = "prospector"
 test = "pytest --cov=empkins_io --cov-report=xml"
 docs = {"script" = "_tasks:task_docs"}
 update_version = {"script" = "_tasks:task_update_version"}
+default = ["format", "lint", "test"]
