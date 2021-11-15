@@ -6,9 +6,12 @@ authors = ["Robert Richer <robert.richer@fau.de>"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.10"
-librosa = "^0.8.1"
 biopsykit = {path = "../../../BioPsyKit", develop = true, extras = ["mne", "jupyter"]}
 empkins-io = {path = "../empkins_io", develop = true}
+#librosa = "^0.8.1"
+fer = "^21.0.5"
+tensorflow = "^2.6.0"
+deepface = "^0.0.68"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
