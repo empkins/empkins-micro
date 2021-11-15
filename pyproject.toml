@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "empkins-micro"
 version = "0.1.0"
-description = "A Python package to analyze EmpkinS Micro data."
+description = "A Python package to work with EmpkinS Micro data."
 authors = ["Robert Richer <robert.richer@fau.de>"]
 
 [tool.poetry.dependencies]
