@@ -5,11 +5,11 @@ from typing import Optional, Union, Sequence, Dict, Any
 import cv2
 import numpy as np
 import pandas as pd
-from biopsykit.utils._types import path_t
 from deepface import DeepFace
 
 from tqdm.auto import tqdm
 
+from biopsykit.utils._types import path_t
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
 __all__ = ["DeepFaceEmotionProcessor"]
@@ -30,6 +30,9 @@ class DeepFaceEmotionProcessor(_BaseEmotionProcessor):
         self.cap = cv2.VideoCapture(str(self.file_path))
         # get fps from video
         fps = self.cap.get(cv2.CAP_PROP_FPS)
+        if fps_out > fps:
+            raise ValueError(f"'fps_out' cannot be higher than the video frame rate ({fps} fps).")
+
         length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         # analyze video
         frequency = int(fps / fps_out)
