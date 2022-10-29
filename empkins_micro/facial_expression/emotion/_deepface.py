@@ -5,7 +5,6 @@ from typing import Optional, Union, Sequence, Dict, Any
 import cv2
 import numpy as np
 import pandas as pd
-from deepface import DeepFace
 
 from tqdm.auto import tqdm
 
@@ -25,6 +24,8 @@ class DeepFaceEmotionProcessor(_BaseEmotionProcessor):
         self.detector_backend = kwargs.get("detector_backend", "ssd")
 
     def process(self, fps_out: Optional[float] = 1, start_time: Optional[Union[datetime.datetime, str]] = None):
+        from deepface import DeepFace  # pylint:disable=import-outside-toplevel
+
         super().process()
         # open video
         self.cap = cv2.VideoCapture(str(self.file_path))

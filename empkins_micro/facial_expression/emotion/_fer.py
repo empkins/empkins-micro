@@ -3,7 +3,6 @@ from typing import Optional, Union, Sequence
 
 import pandas as pd
 from biopsykit.utils._types import path_t
-from fer import Video, FER
 
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
@@ -14,6 +13,8 @@ class FerEmotionProcessor(_BaseEmotionProcessor):
     def __init__(
         self, file_path: path_t, output_dir: Optional[path_t] = None, emotions: Optional[Sequence[str]] = None
     ):
+        from _fer import Video, FER  # pylint:disable=import-outside-toplevel
+
         super().__init__(file_path, output_dir, emotions)
         self.raw_result = None
 
