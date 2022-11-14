@@ -2,7 +2,6 @@ import datetime
 from copy import deepcopy
 from typing import Optional, Union, Sequence, Dict, Any
 
-import cv2
 import numpy as np
 import pandas as pd
 
@@ -25,6 +24,7 @@ class DeepFaceEmotionProcessor(_BaseEmotionProcessor):
 
     def process(self, fps_out: Optional[float] = 1, start_time: Optional[Union[datetime.datetime, str]] = None):
         from deepface import DeepFace  # pylint:disable=import-outside-toplevel
+        import cv2 # pylint:disable=import-outside-toplevel
 
         super().process()
         # open video

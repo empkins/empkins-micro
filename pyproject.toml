@@ -9,12 +9,13 @@ python = ">=3.8,<3.10"
 biopsykit = {git="https://github.com/mad-lab-fau/BioPsyKit.git", branch="main", extras=["jupyter"]}
 empkins-io = {path = "../empkins-io", develop = true}
 #librosa = "^0.8.1"
+opencv-python = {version = "^4.6", optional = true}
 fer = {version = "^21.0.5", optional = true}
 tensorflow = {version = "^2.6.0", optional = true}
 deepface = {version = "^0.0.68", optional = true}
 
 [tool.poetry.extras]
-facial_expression = ["fer", "tensorflow", "deepface"]
+facial_expression = ["fer", "tensorflow", "deepface", "opencv-python"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
