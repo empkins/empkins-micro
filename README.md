@@ -16,6 +16,24 @@ Then, install [poetry](https://python-poetry.org) which is used to manage depend
 Once you installed poetry, run the following commands to clone the repository, initialize a virtual env and install 
 all development dependencies:
 
+### MaD Lab Gitlab
+With ssh access:
+
+```bash
+git clone git@mad-srv.informatik.uni-erlangen.de:empkins/packages/empkins-micro.git
+cd empkins_micro
+poetry install
+```
+
+With https access:
+
+```bash
+git clone https://mad-srv.informatik.uni-erlangen.de/empkins/packages/empkins-micro.git
+cd empkins_micro
+poetry install
+```
+
+### RRZE Gitlab
 With ssh access:
 
 ```bash
@@ -67,23 +85,3 @@ poetry update
 ```
 
 For more commands see the [official documentation](https://python-poetry.org/docs/cli/).
-
-
-
-## Running the Experiments
-
-In order to use this package make sure to perform the following steps before:
-1. Install the required EmpkinS dependency [`empkins-io`](https://mad-srv.informatik.uni-erlangen.de/empkins/empkins-io).
-1. Install this package.
-1. Get the dataset you want to perform your validation on (e.g., the [EmpkinS Micro Prestudy Dataset](https://mad-srv.informatik.uni-erlangen.de/MadLab/data/empkins/d03/empkins-micro-prestudy)).
-1. Save the dataset somewhere on your local computer.
-1. In this project:  
-    1. Navigate to `experiments/<name-of-experiment-folder>` and create a file named `config.json`.
-    1. Add the following content to `config.json`:
-        ```json
-        {
-            "base_path": "<path-to-dataset>"
-        }
-        ```
-        where the path to the dataset is either provided as relative or absolute path.  
-        **WARNING:** This path is specific for your local machine, so don't add this file to git! (by default, it is ignored by `.gitignore`, don't change that).
