@@ -21,7 +21,7 @@ With ssh access:
 
 ```bash
 git clone git@mad-srv.informatik.uni-erlangen.de:empkins/packages/empkins-micro.git
-cd empkins_micro
+cd empkins-micro
 poetry install
 ```
 
@@ -29,7 +29,7 @@ With https access:
 
 ```bash
 git clone https://mad-srv.informatik.uni-erlangen.de/empkins/packages/empkins-micro.git
-cd empkins_micro
+cd empkins-micro
 poetry install
 ```
 
@@ -38,7 +38,7 @@ With ssh access:
 
 ```bash
 git clone git@gitlab.rrze.fau.de:empkins/empkins-micro.git
-cd empkins_micro
+cd empkins-micro
 poetry install
 ```
 
@@ -46,7 +46,7 @@ With https access:
 
 ```bash
 git clone https://gitlab.rrze.fau.de/empkins/empkins-micro.git
-cd empkins_micro
+cd empkins-micro
 poetry install
 ```
 
