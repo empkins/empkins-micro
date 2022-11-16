@@ -5,7 +5,7 @@ description = "A Python package to work with EmpkinS Micro data."
 authors = ["Robert Richer <robert.richer@fau.de>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.10"
+python = ">=3.8,<3.11"
 biopsykit = {git="https://github.com/mad-lab-fau/BioPsyKit.git", branch="main", extras=["jupyter"]}
 empkins-io = {path = "../empkins-io", develop = true}
 #librosa = "^0.8.1"
