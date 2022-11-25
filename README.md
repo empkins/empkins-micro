@@ -33,11 +33,11 @@ cd empkins-micro
 poetry install
 ```
 
-### RRZE Gitlab
+### GitHub
 With ssh access:
 
 ```bash
-git clone git@gitlab.rrze.fau.de:empkins/empkins-micro.git
+git clone git@github.com:empkins/empkins-micro.git
 cd empkins-micro
 poetry install
 ```
@@ -45,7 +45,7 @@ poetry install
 With https access:
 
 ```bash
-git clone https://gitlab.rrze.fau.de/empkins/empkins-micro.git
+git clone https://github.com/empkins/empkins-micro.git
 cd empkins-micro
 poetry install
 ```
@@ -67,7 +67,7 @@ format_check         Check, but not change, formatting using black.
 lint                 Lint all files with Prospector.
 test                 Run Pytest with coverage.
 update_version       Bump the version in pyproject.toml and empkins_io.__init__ .
-register_ipykernel      Register a new IPython kernel named `empkins-micro` linked to the virtual environment.
+register_ipykernel   Register a new IPython kernel named `empkins-micro` linked to the virtual environment.
 remove_ipykernel     Remove the associated IPython kernel.
 ```
 
