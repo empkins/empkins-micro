@@ -7,6 +7,15 @@ import pandas as pd
 
 from tqdm.auto import tqdm
 
+try:
+    from deepface import DeepFace
+    import cv2
+except ImportError as e:
+    raise ImportError(
+        "'deepface' is not installed that is required for emotion detection. "
+        "Please install it with 'pip install deepface' or 'poetry add deepface'."
+    ) from e
+
 from biopsykit.utils._types import path_t
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
@@ -23,8 +32,6 @@ class DeepFaceEmotionProcessor(_BaseEmotionProcessor):
         self.detector_backend = kwargs.get("detector_backend", "ssd")
 
     def process(self, fps_out: Optional[float] = 1, start_time: Optional[Union[datetime.datetime, str]] = None):
-        from deepface import DeepFace  # pylint:disable=import-outside-toplevel
-        import cv2 # pylint:disable=import-outside-toplevel
 
         super().process()
         # open video

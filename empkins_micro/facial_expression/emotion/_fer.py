@@ -6,6 +6,14 @@ from biopsykit.utils._types import path_t
 
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
+try:
+    from fer import Video, FER  # pylint:disable=import-outside-toplevel
+except ImportError as e:
+    raise ImportError(
+        "'fer' is not installed that is required for facial expression recognition. "
+        "Please install it with 'pip install fer' or 'poetry add fer'."
+    ) from e
+
 __all__ = ["FerEmotionProcessor"]
 
 
@@ -13,7 +21,6 @@ class FerEmotionProcessor(_BaseEmotionProcessor):
     def __init__(
         self, file_path: path_t, output_dir: Optional[path_t] = None, emotions: Optional[Sequence[str]] = None
     ):
-        from _fer import Video, FER  # pylint:disable=import-outside-toplevel
 
         super().__init__(file_path, output_dir, emotions)
         self.raw_result = None
