@@ -10,9 +10,10 @@ biopsykit = {git="https://github.com/mad-lab-fau/BioPsyKit.git", branch="main", 
 empkins-io = {path = "../empkins-io", develop = true}
 numpy = ">=1.19,<1.24"
 "pyannote.audio" = {version = "^2.1.1", optional = true}
+praat-parselmouth = {version = "^0.4.3", optional = true}
 
 [tool.poetry.extras]
-audio = ["pyannote.audio"]
+audio = ["pyannote.audio", "praat-parselmouth"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
