@@ -89,11 +89,8 @@ class RawFeatureExtraction():
         if self._df_pitch is not None:
 
             df_jitter = calc_jitter(self._df_pitch, self._audio_path)
-            df_jitter[["error_reason", "Frames", "dbm_master_url"]] = np.nan #TODO ?
             # df_shimmer = calc_shimmer(self._df_pitch, self._audio_path)
-            # df_shimmer[["error_reason", "Frames", "dbm_master_url"]] = np.nan
             # df_gne = calc_gne(self._df_pitch, self._audio_path)
-            # df_gne[["error_reason", "Frames", "dbm_master_url"]] = np.nan
 
             df_jitter.to_csv(tmp_path.joinpath("jitter.csv"), index=False)
             # df_shimmer.to_csv(tmp_path.joinpath("shimmer.csv"), index=False)
@@ -102,12 +99,12 @@ class RawFeatureExtraction():
         else:
             raise print('pitch dataframe (df_pitch) is not initialized')
 
-        if self._df_eyeblink is not None:
-            df_eyeblink = binarize_eyeblink(self._df_eyeblink)
-            df_eyeblink.to_csv(tmp_path.joinpath("eyeblink.csv"), index=False)
-
-        else:
-            raise print('eyeblink dataframe is not initialized')
+        # if self._df_eyeblink is not None:
+        #     df_eyeblink = binarize_eyeblink(self._df_eyeblink)
+        #     df_eyeblink.to_csv(tmp_path.joinpath("eyeblink.csv"), index=False)
+        #
+        # else:
+        #     raise print('eyeblink dataframe is not initialized')
 
 
         # if self._df_pitch is not None or self._df_eyeblink is not None:

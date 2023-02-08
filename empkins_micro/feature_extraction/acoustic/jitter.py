@@ -19,7 +19,7 @@ def _audio_jitter(sound):
     )
     return jitter
 
-def _segment_jitter(com_speech_sort, voiced_yes, voiced_no, jitter_frames, audio_file):
+def _segment_jitter(com_speech_sort, jitter_frames, audio_file):
     """
     calculating jitter for each voice segment
     """
@@ -28,14 +28,13 @@ def _segment_jitter(com_speech_sort, voiced_yes, voiced_no, jitter_frames, audio
 
     for idx, vs in enumerate(com_speech_sort):
         try:
-
             jitter = np.NaN
             start_time = np.NaN
             end_time = np.NaN
             snd_start = np.NaN
             snd_end = np.NaN
 
-            if vs in voiced_yes and len(vs) > 1:
+            if len(vs) > 1:
 
                 start_time = pitch.get_time_from_frame_number(vs[0])
                 end_time = pitch.get_time_from_frame_number(vs[-1])
@@ -65,10 +64,10 @@ def calc_jitter(ff_df, audio_file):
 
     cols_out = ['aco_jitter', 'start_time', 'end_time', 'snd_start', 'snd_end']
 
-    jitter_frames = [[np.NaN for _ in cols_out]] * len(voice_seg[0])
+    jitter_frames = [[np.NaN for _ in cols_out]] * len(voice_seg)
 
     jitter_segment_frames = _segment_jitter(
-        voice_seg[0], voice_seg[1], voice_seg[2], jitter_frames, audio_file
+        voice_seg, jitter_frames, audio_file
     )
 
     df_jitter = pd.DataFrame(jitter_segment_frames, columns=cols_out)
