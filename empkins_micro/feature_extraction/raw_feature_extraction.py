@@ -13,6 +13,7 @@ from empkins_micro.feature_extraction.acoustic.jitter import calc_jitter
 from empkins_micro.feature_extraction.acoustic.glottal_noise import calc_gne
 from empkins_micro.feature_extraction.movement.eyeblink import binarize_eyeblink
 from empkins_io.datasets.d03.macro_prestudy.helper import build_opendbm_tarfile_path, build_opendbm_raw_data_path
+from empkins_micro.feature_extraction.acoustic.helper import process_segment_pitch
 
 
 class RawFeatureExtraction():
@@ -74,8 +75,8 @@ class RawFeatureExtraction():
             if self._df_eyeblink is not None:
                 tar.add(tmp_path.joinpath("eyeblink.csv"), arcname=eyeblink_path)
 
-        # TODO
-        # shutil.rmtree(tmp_path)
+        shutil.rmtree(tmp_path)
+
 
     def feature_extraction(self):
 
@@ -87,26 +88,26 @@ class RawFeatureExtraction():
             os.mkdir(tmp_path)
 
         if self._df_pitch is not None:
+            voice_seg = process_segment_pitch(self._df_pitch)
 
-            df_jitter = calc_jitter(self._df_pitch, self._audio_path)
-            # df_shimmer = calc_shimmer(self._df_pitch, self._audio_path)
-            # df_gne = calc_gne(self._df_pitch, self._audio_path)
+            df_jitter = calc_jitter(self._audio_path, voice_seg)
+            df_shimmer = calc_shimmer(self._audio_path, voice_seg)
+            df_gne = calc_gne(self._audio_path, voice_seg)
 
             df_jitter.to_csv(tmp_path.joinpath("jitter.csv"), index=False)
-            # df_shimmer.to_csv(tmp_path.joinpath("shimmer.csv"), index=False)
-            # df_gne.to_csv(tmp_path.joinpath("gne.csv"), index=False)
+            df_shimmer.to_csv(tmp_path.joinpath("shimmer.csv"), index=False)
+            df_gne.to_csv(tmp_path.joinpath("gne.csv"), index=False)
 
         else:
             raise print('pitch dataframe (df_pitch) is not initialized')
 
-        # if self._df_eyeblink is not None:
-        #     df_eyeblink = binarize_eyeblink(self._df_eyeblink)
-        #     df_eyeblink.to_csv(tmp_path.joinpath("eyeblink.csv"), index=False)
-        #
-        # else:
-        #     raise print('eyeblink dataframe is not initialized')
+        if self._df_eyeblink is not None:
+            df_eyeblink = binarize_eyeblink(self._df_eyeblink)
+            df_eyeblink.to_csv(tmp_path.joinpath("eyeblink.csv"), index=False)
 
+        else:
+            raise print('eyeblink dataframe is not initialized')
 
-        # if self._df_pitch is not None or self._df_eyeblink is not None:
-        #     self.write_file(self._base_path.joinpath("data_per_subject"), self._subject_id, self._condition)
+        if self._df_pitch is not None or self._df_eyeblink is not None:
+            self.write_file(self._base_path.joinpath("data_per_subject"), self._subject_id, self._condition)
 

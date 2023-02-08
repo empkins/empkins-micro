@@ -1,21 +1,6 @@
-import pandas as pd
 import numpy as np
-import more_itertools as mit
-
 
 def process_segment_pitch(ff_df):
-    # voice_label = ff_df['aco_voicelabel']
-    #
-    # indices_yes = [i for i, x in enumerate(voice_label) if x == "yes"]
-    # voiced_yes = [list(group) for group in mit.consecutive_groups(indices_yes)]
-    #
-    # indices_no = [i for i, x in enumerate(voice_label) if x == "no"]
-    # voiced_no = [list(group) for group in mit.consecutive_groups(indices_no)]
-    #
-    # com_speech = voiced_yes + voiced_no
-    # com_speech_sort = sorted(com_speech, key=lambda x: x[0])
-
-    # return com_speech_sort, voiced_yes, voiced_no
 
     voice_label = ff_df['aco_voicelabel']
     voice_label_yes = voice_label == "yes"

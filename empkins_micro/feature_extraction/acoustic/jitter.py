@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from empkins_micro.feature_extraction.acoustic.helper import process_segment_pitch
+
 import parselmouth
 
 def _audio_jitter(sound):
@@ -31,8 +31,6 @@ def _segment_jitter(com_speech_sort, jitter_frames, audio_file):
             jitter = np.NaN
             start_time = np.NaN
             end_time = np.NaN
-            snd_start = np.NaN
-            snd_end = np.NaN
 
             if len(vs) > 1:
 
@@ -47,22 +45,18 @@ def _segment_jitter(com_speech_sort, jitter_frames, audio_file):
         except:
             pass
 
-        jitter_frames[idx] = [jitter, start_time, end_time, snd_start, snd_end]
+        jitter_frames[idx] = [jitter, start_time, end_time]
     return jitter_frames
 
 
-def calc_jitter(ff_df, audio_file):
+def calc_jitter(audio_file, voice_seg):
     """
     Preparing jitter matrix
     Args:
         audio_file: (.wav) parsed audio file
-        out_loc: (str) Output directory for csv
-        r_config: config.config_raw_feature.pyConfigFeatureNmReader object
     """
 
-    voice_seg = process_segment_pitch(ff_df)
-
-    cols_out = ['aco_jitter', 'start_time', 'end_time', 'snd_start', 'snd_end']
+    cols_out = ['aco_jitter', 'start_time', 'end_time']
 
     jitter_frames = [[np.NaN for _ in cols_out]] * len(voice_seg)
 

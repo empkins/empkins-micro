@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from empkins_micro.feature_extraction.acoustic.helper import process_segment_pitch
+
 import parselmouth
 
 def _gne_ratio(sound):
@@ -21,7 +21,7 @@ def _gne_ratio(sound):
     return gne
 
 
-def _segment_gne(com_speech_sort, voiced_yes, voiced_no, gne_all_frames, audio_file):
+def _segment_gne(com_speech_sort, gne_all_frames, audio_file):
     """
     calculating gne for each voice segment
     """
@@ -30,9 +30,11 @@ def _segment_gne(com_speech_sort, voiced_yes, voiced_no, gne_all_frames, audio_f
 
     for idx, vs in enumerate(com_speech_sort):
         try:
-
             max_gne = np.NaN
-            if vs in voiced_yes and len(vs) > 1:
+            start_time = np.NaN
+            end_time = np.NaN
+
+            if len(vs) > 1:
 
                 start_time = pitch.get_time_from_frame_number(vs[0])
                 end_time = pitch.get_time_from_frame_number(vs[-1])
@@ -45,25 +47,24 @@ def _segment_gne(com_speech_sort, voiced_yes, voiced_no, gne_all_frames, audio_f
         except:
             pass
 
-        gne_all_frames[idx] = max_gne
+        gne_all_frames[idx] = [max_gne, start_time, end_time]
     return gne_all_frames
 
 
-def calc_gne(ff_df, audio_file):
+def calc_gne(audio_file, voice_seg):
     """
     Preparing gne matrix
     Args:
         audio_file: (.wav) parsed audio file
-        out_loc: (str) Output directory for csv's
     """
 
-    voice_seg = process_segment_pitch(ff_df=ff_df)
+    cols_out = ['aco_gne', 'start_time', 'end_time']
 
-    gne_all_frames = [np.NaN] * len(voice_seg[0])
+    gne_all_frames = [[np.NaN for _ in cols_out]] * len(voice_seg)
     gne_segment_frames = _segment_gne(
-        voice_seg[0], voice_seg[1], voice_seg[2], gne_all_frames, audio_file
+        voice_seg, gne_all_frames, audio_file
     )
 
-    df_gne = pd.DataFrame(gne_segment_frames, columns=['aco_gne'])
+    df_gne = pd.DataFrame(gne_segment_frames, columns=cols_out)
 
     return df_gne
