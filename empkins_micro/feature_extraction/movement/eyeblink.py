@@ -7,6 +7,7 @@ def binarize_eyeblink(data):
         num_frames = np.floor(data.at[0, "vid_dur"] * data.at[0, "fps"]).astype(int)
         bin_data = np.zeros((num_frames, 1))
         indices = data["mov_blinkframes"].to_numpy()
+        indices = indices[indices <= num_frames]
         bin_data[indices] = 1
 
         return pd.DataFrame(bin_data.astype(int), columns=["mov_eyeblink"])
