@@ -17,6 +17,7 @@ from empkins_micro.feature_extraction.acoustic.helper import process_segment_pit
 from empkins_micro.feature_extraction.acoustic.pause_segment import run_pause_segment
 from empkins_micro.feature_extraction.acoustic.voice_frame_score import calc_vfs
 from empkins_micro.feature_extraction.acoustic.voice_tremor import tremor_praat
+from empkins_micro.feature_extraction.utils import segment_audio
 
 
 class RawFeatureExtraction():
@@ -24,30 +25,30 @@ class RawFeatureExtraction():
     _subject_id: str
     _condition: str
     _audio_path: path_t
+    _diarization: pd.DataFrame
     _df_pitch: pd.DataFrame
     _df_eyeblink: pd.DataFrame
     _features_audio_seg: bool
-    _do_feature_extraction: bool
 
     def __init__(self,
                  base_path: path_t,
                  subject_id: str,
                  condition: str,
                  audio_path: Optional[path_t] = "",
+                 diarization: Optional[pd.DataFrame] = None,
                  df_pitch: Optional[pd.DataFrame] = None,
                  df_eyeblink: Optional[pd.DataFrame] = None,
-                 features_audio_seg: Optional[bool] = True
                  ):
 
         self._base_path = base_path
         self._subject_id = subject_id
         self._condition = condition
         self._audio_path = Path(audio_path)
+        self._diarization = diarization
         self._df_pitch = df_pitch
         self._df_eyeblink = df_eyeblink
-        self._features_audio_seg = features_audio_seg
         self._do_feature_extraction = self._df_pitch is not None or self._df_eyeblink is not None or \
-                                      self._features_audio_seg
+                                      self._diarization is not None
 
     def get_data_path(self):
         return self._base_path.joinpath("data_per_subject", f"{self._subject_id}", f"{self._condition}", "video",
@@ -123,13 +124,23 @@ class RawFeatureExtraction():
             print('eyeblink dataframe is not initialized')
 
         # compute features from segmented audio files
-        if self._features_audio_seg:
-            audio_path_mono = self._audio_path.with_name(f"{self._subject_id}_{self._condition}_mono").with_suffix('.wav')
-            print(audio_path_mono)
+        if self._diarization is not None:
+            path_files = self._audio_path.parent.joinpath("audio_segments")
 
-            return run_pause_segment(self._audio_path, audio_path_mono)
+            df_dia_seg = segment_audio(self._audio_path, self._subject_id,
+                                            self._condition, self._diarization, path_files)
+
+            # df_pause_segment = pd.DataFrame(columns=["start", "stop", "length", ])
+            # for idx, seg in df_dia_seg:
+
+
+            # audio_path_mono = self..with_name(f"{self._subject_id}_{self._condition}_mono").with_suffix('.wav')
+
+            # run_pause_segment(self._audio_path, audio_path_mono)
             # calc_vfs(self._audio_path)
             # tremor_praat(self._audio_path)
+            return #data
+
 
         else:
             print("features from segmented audio files are not computed")
