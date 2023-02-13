@@ -11,9 +11,14 @@ empkins-io = {path = "../empkins-io", develop = true}
 numpy = ">=1.19,<1.24"
 "pyannote.audio" = {version = "^2.1.1", optional = true}
 praat-parselmouth = {version = "^0.4.3", optional = true}
+webrtcvad = {version = "^2.0.10", optional = true}
+pydub = {version = "^0.25.1", optional = true}
+wave = "^0.0.2"
+contextlib2 = "^21.6.0"
+collection = "^0.1.6"
 
 [tool.poetry.extras]
-audio = ["pyannote.audio", "praat-parselmouth"]
+audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
