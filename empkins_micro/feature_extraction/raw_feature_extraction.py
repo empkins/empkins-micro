@@ -28,15 +28,16 @@ class RawFeatureExtraction():
     _df_eyeblink: pd.DataFrame
     _features_audio_seg: bool
 
-    def __init__(self,
-                 base_path: path_t,
-                 subject_id: str,
-                 condition: str,
-                 audio_path: Optional[path_t] = "",
-                 diarization: Optional[pd.DataFrame] = None,
-                 df_pitch: Optional[pd.DataFrame] = None,
-                 df_eyeblink: Optional[pd.DataFrame] = None,
-                 ):
+    def __init__(
+        self,
+        base_path: path_t,
+        subject_id: str,
+        condition: str,
+        audio_path: Optional[path_t] = "",
+        diarization: Optional[pd.DataFrame] = None,
+        df_pitch: Optional[pd.DataFrame] = None,
+        df_eyeblink: Optional[pd.DataFrame] = None,
+    ):
 
         self._base_path = base_path
         self._subject_id = subject_id
@@ -78,16 +79,19 @@ class RawFeatureExtraction():
         df_shimmer = calc_shimmer(self._audio_path, voice_seg)
         df_gne = calc_gne(self._audio_path, voice_seg)
 
-        jitter_path = build_opendbm_raw_data_path(subject_id=self._subject_id, condition=self._condition,
-                                                  group="acoustic", subgroup="jitter_recomputed")[0]
+        jitter_path = build_opendbm_raw_data_path(
+            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="jitter_recomputed"
+        )[0]
         jitter_path = data_path.parent.joinpath(jitter_path)
         os.mkdir(jitter_path.parent)
-        shimmer_path = build_opendbm_raw_data_path(subject_id=self._subject_id, condition=self._condition,
-                                                   group="acoustic", subgroup="shimmer_recomputed")[0]
+        shimmer_path = build_opendbm_raw_data_path(
+            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="shimmer_recomputed"
+        )[0]
         shimmer_path = data_path.parent.joinpath(shimmer_path)
         os.mkdir(shimmer_path.parent)
-        gne_path = build_opendbm_raw_data_path(subject_id=self._subject_id, condition=self._condition,
-                                               group="acoustic", subgroup="gne_recomputed")[0]
+        gne_path = build_opendbm_raw_data_path(
+            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="gne_recomputed"
+        )[0]
         gne_path = data_path.parent.joinpath(gne_path)
         os.mkdir(gne_path.parent)
 
