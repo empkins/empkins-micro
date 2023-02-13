@@ -22,12 +22,17 @@ def voice_segment(path):
     Returns:
         (float) total voice frames, participant voiced frames and voiced frames percentage
     """
-    sound_pat = parselmouth.Sound(path)
-    pitch = sound_pat.to_pitch()
+    sound_pat = parselmouth.Sound(str(path))
+    try:
+        pitch = sound_pat.to_pitch()
+    except:
+        print("audio duration is shorter than 0.064 seconds")
+        return ""
+
     total_frames, voiced_frames = audio_pitch_frame(pitch)
 
     voiced_percentage = (voiced_frames / total_frames) * 100
-    return voiced_percentage, voiced_frames, total_frames
+    return voiced_percentage
 
 def calc_vfs(audio_file):
     """
@@ -38,7 +43,9 @@ def calc_vfs(audio_file):
         f_nm_config: Config file object
     """
 
-    voice_percentage, _, _ = voice_segment(audio_file)
-    df = pd.DataFrame(data=[voice_percentage], columns=['aco_voicepct_mean'])
+    voice_percentage = voice_segment(audio_file)
+    if isinstance(voice_percentage, str):
+        return ""
 
+    df = pd.DataFrame(data=[voice_percentage], columns=['aco_voicepct'])
     return df

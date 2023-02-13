@@ -262,7 +262,7 @@ def process_silence(audio_file):
         Dataframe value
     """
     feat_dict_list = []
-    y, sr = read_wave(audio_file)
+    y, sr = read_wave(str(audio_file))
 
     # 3 is most aggressive (splits most), 0 least (better for low snr)
     aggressiveness = 3
@@ -285,6 +285,7 @@ def process_silence(audio_file):
 
         # Logic to handle blank audio file
         if len(long_seg_starts) == 0 or len(long_seg_ends) == 0:
+            print("audio duration is shorter than 0.064 seconds")
             return ""
 
         t_start = long_seg_starts[0]
@@ -312,7 +313,7 @@ def process_silence(audio_file):
     return df
 
 
-def run_pause_segment(audio_file, mono_wav):
+def calc_pause_segment(audio_file, mono_wav):
     """
     Processing all patient's for getting Pause Segment
     ---------------
