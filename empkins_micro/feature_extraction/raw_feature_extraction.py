@@ -150,7 +150,7 @@ class RawFeatureExtraction:
                     "start": seg["start"],
                     "stop": seg["stop"],
                     "length": seg["length"],
-                    "aco_voicepct_mean": res_vfs.at[0, "aco_voicepct_mean"]
+                    "aco_voicepct": res_vfs.at[0, "aco_voicepct"]
                 }
             )
 
@@ -164,12 +164,12 @@ class RawFeatureExtraction:
                     "start": seg["start"],
                     "stop": seg["stop"],
                     "length": seg["length"],
-                    "mov_freqtremfreq_mean": res_vt.at["0", "mov_freqtremfreq_mean"],
-                    "mov_amptremfreq_mean": res_vt.at["0", "mov_amptremfreq_mean"],
-                    "mov_freqtremindex_mean": res_vt.at["0", "mov_freqtremindex_mean"],
-                    "mov_amptremindex_mean": res_vt.at["0", "mov_amptremindex_mean"],
-                    "mov_freqtrempindex_mean": res_vt.at["0", "mov_freqtrempindex_mean"],
-                    "mov_amptrempindex_mean": res_vt.at["0", "mov_amptrempindex_mean"],
+                    "mov_freqtremfreq": res_vt.at["0", "mov_freqtremfreq"],
+                    "mov_amptremfreq": res_vt.at["0", "mov_amptremfreq"],
+                    "mov_freqtremindex": res_vt.at["0", "mov_freqtremindex"],
+                    "mov_amptremindex": res_vt.at["0", "mov_amptremindex"],
+                    "mov_freqtrempindex": res_vt.at["0", "mov_freqtrempindex"],
+                    "mov_amptrempindex": res_vt.at["0", "mov_amptrempindex"],
                 }
             )
 
