@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-
 import parselmouth
+from empkins_micro.feature_extraction.acoustic.helper import get_length
+
 
 def _gne_ratio(sound):
     """
@@ -29,13 +30,12 @@ def _segment_gne(com_speech_sort, gne_all_frames, audio_file):
     pitch = snd.to_pitch(time_step=0.001)
 
     for idx, vs in enumerate(com_speech_sort):
+        max_gne = np.NaN
+        start_time = np.NaN
+        end_time = np.NaN
+        error = "PASS"
         try:
-            max_gne = np.NaN
-            start_time = np.NaN
-            end_time = np.NaN
-
             if len(vs) > 1:
-
                 start_time = pitch.get_time_from_frame_number(vs[0])
                 end_time = pitch.get_time_from_frame_number(vs[-1])
 
@@ -44,11 +44,24 @@ def _segment_gne(com_speech_sort, gne_all_frames, audio_file):
 
                 samples = parselmouth.Sound(snd.as_array()[0][snd_start:snd_end])
                 max_gne = _gne_ratio(samples)
-        except:
-            pass
+            else:
+                error = "voice segment is to short for gne calculation"
+        except Exception as e:
+            error = f"gne calculation failed for this segment: {e}"
 
-        gne_all_frames[idx] = [max_gne, start_time, end_time]
+        gne_all_frames[idx] = [max_gne, start_time, end_time, error]
     return gne_all_frames
+
+
+def empty_gne(error_text):
+
+    data = {
+        'aco_gne': [np.nan],
+        'start_time': [np.nan],
+        'end_time': [np.nan],
+        'error': [error_text]
+    }
+    return pd.DataFrame.from_dict(data)
 
 
 def calc_gne(audio_file, voice_seg):
@@ -58,13 +71,21 @@ def calc_gne(audio_file, voice_seg):
         audio_file: (.wav) parsed audio file
     """
 
-    cols_out = ['aco_gne', 'start_time', 'end_time']
+    try:
+        audio_duration = get_length(audio_file)
+        if float(audio_duration) < 0.064:
+            return empty_gne("audio duration less than 0.064 seconds")
 
-    gne_all_frames = [[np.NaN for _ in cols_out]] * len(voice_seg)
-    gne_segment_frames = _segment_gne(
-        voice_seg, gne_all_frames, audio_file
-    )
+        cols_out = ['aco_gne', 'start_time', 'end_time', 'error']
 
-    df_gne = pd.DataFrame(gne_segment_frames, columns=cols_out)
+        gne_all_frames = [[np.NaN for _ in cols_out]] * len(voice_seg)
+        gne_segment_frames = _segment_gne(
+            voice_seg, gne_all_frames, audio_file
+        )
 
-    return df_gne
+        df_gne = pd.DataFrame(gne_segment_frames, columns=cols_out)
+
+        return df_gne
+
+    except Exception as e:
+        return empty_gne(f"failed to process audio file: {e}")

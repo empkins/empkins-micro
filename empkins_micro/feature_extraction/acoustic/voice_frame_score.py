@@ -1,6 +1,7 @@
 import pandas as pd
 import parselmouth
-
+import numpy as np
+from empkins_micro.feature_extraction.acoustic.helper import get_length
 
 def audio_pitch_frame(pitch):
     """
@@ -23,16 +24,22 @@ def voice_segment(path):
         (float) total voice frames, participant voiced frames and voiced frames percentage
     """
     sound_pat = parselmouth.Sound(str(path))
-    try:
-        pitch = sound_pat.to_pitch()
-    except:
-        print("audio duration is shorter than 0.064 seconds")
-        return ""
-
+    pitch = sound_pat.to_pitch()
     total_frames, voiced_frames = audio_pitch_frame(pitch)
 
     voiced_percentage = (voiced_frames / total_frames) * 100
-    return voiced_percentage
+    res_dict = {
+        'aco_voicepct': [voiced_percentage],
+        'error': ['PASS']
+    }
+    return res_dict
+
+def empty_vfs(error_text):
+    data = {
+        'aco_voicepct': [np.nan],
+        'error': [error_text]
+    }
+    return pd.DataFrame.from_dict(data)
 
 def calc_vfs(audio_file):
     """
@@ -42,10 +49,15 @@ def calc_vfs(audio_file):
         new_out_base_dir: AWS instance output base directory path
         f_nm_config: Config file object
     """
+    try:
+        audio_duration = get_length(audio_file)
 
-    voice_percentage = voice_segment(audio_file)
-    if isinstance(voice_percentage, str):
-        return ""
+        if float(audio_duration) < 0.064:
+            return empty_vfs("audio duration less than 0.064 seconds")
 
-    df = pd.DataFrame(data=[voice_percentage], columns=['aco_voicepct'])
-    return df
+        voice_percentage_dict = voice_segment(audio_file)
+
+        df = pd.DataFrame.from_dict(voice_percentage_dict)
+        return df
+    except Exception as e:
+        return empty_vfs(f"failed to process audio file: {e}")

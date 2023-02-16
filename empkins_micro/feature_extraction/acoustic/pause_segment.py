@@ -7,6 +7,8 @@ import sys
 import contextlib
 import wave
 import collections
+from empkins_micro.feature_extraction.acoustic.helper import get_length
+
 
 class Frame(object):
     """Represents a "frame" of audio data."""
@@ -31,6 +33,7 @@ def read_wave(path):
         pcm_data = wf.readframes(wf.getnframes())
         return pcm_data, sample_rate
 
+
 def frame_generator(frame_duration_ms, audio, sample_rate):
     """Generates audio frames from PCM audio data.
     Takes the desired frame duration in milliseconds, the PCM data, and
@@ -45,6 +48,7 @@ def frame_generator(frame_duration_ms, audio, sample_rate):
         yield Frame(audio[offset: offset + n], timestamp, duration)
         timestamp += duration
         offset += n
+
 
 def vad_get_segment_times(
         sample_rate, frame_duration_ms, padding_duration_ms, vad, frames
@@ -249,6 +253,7 @@ def get_timing_cues(seg_starts_sec, seg_ends_sec):
         'aco_numpauses': num_pauses,
         'aco_pausetime': pause_time,
         'aco_pausefrac': pause_frac,
+        'error': "PASS"
     }
     return timing_dict
 
@@ -285,8 +290,7 @@ def process_silence(audio_file):
 
         # Logic to handle blank audio file
         if len(long_seg_starts) == 0 or len(long_seg_ends) == 0:
-            print("audio duration is shorter than 0.064 seconds")
-            return ""
+            return empty_pause_segment("blank audio file")
 
         t_start = long_seg_starts[0]
         t_end = long_seg_ends[-1]
@@ -304,13 +308,28 @@ def process_silence(audio_file):
                 seg_starts.append(short_seg_starts[k])
                 seg_ends.append(short_seg_ends[k])
         if len(seg_starts) == 0 or len(seg_ends) == 0:
-            return ""
+            return empty_pause_segment("webrtcvad returns no segment")
 
         timing_dict = get_timing_cues(seg_starts, seg_ends)
         feat_dict_list.append(timing_dict)
 
+    else:
+        return empty_pause_segment("audio segment is empty")
+
     df = pd.DataFrame(feat_dict_list)
     return df
+
+
+def empty_pause_segment(error_text):
+    data = {
+        'aco_totaltime': [np.nan],
+        'aco_speakingtime': [np.nan],
+        'aco_numpauses': [np.nan],
+        'aco_pausetime': [np.nan],
+        'aco_pausefrac': [np.nan],
+        'error': [error_text]
+    }
+    return pd.DataFrame.from_dict(data)
 
 
 def calc_pause_segment(audio_file, mono_wav):
@@ -322,14 +341,22 @@ def calc_pause_segment(audio_file, mono_wav):
         video_uri: video path; r_config: raw variable config object
         out_dir: (str) Output directory for processed output
     """
+    try:
+        audio_duration = get_length(audio_file)
 
-    # Converting stereo sound to mono-lD
-    sound_mono = AudioSegment.from_wav(audio_file)
-    sound_mono = sound_mono.set_channels(1)
-    sound_mono = sound_mono.set_frame_rate(48000)
-    sound_mono.export(mono_wav, format="wav")
+        if float(audio_duration) < 0.064:
+            return empty_pause_segment("audio duration less than 0.064 seconds")
 
-    df_pause_seg = process_silence(mono_wav)
-    os.remove(mono_wav)  # removing mono wav file
+        # Converting stereo sound to mono-lD
+        sound_mono = AudioSegment.from_wav(audio_file)
+        sound_mono = sound_mono.set_channels(1)
+        sound_mono = sound_mono.set_frame_rate(48000)
+        sound_mono.export(mono_wav, format="wav")
 
-    return df_pause_seg
+        df_pause_seg = process_silence(mono_wav)
+        os.remove(mono_wav)  # removing mono wav file
+
+        return df_pause_seg
+
+    except Exception as e:
+        return empty_pause_segment(f"failed to process audio file: {e}")

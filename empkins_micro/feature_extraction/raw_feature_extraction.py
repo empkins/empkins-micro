@@ -6,15 +6,15 @@ import os
 import shutil
 
 from empkins_micro.utils._types import path_t
-from empkins_micro.feature_extraction.acoustic.shimmer import calc_shimmer
-from empkins_micro.feature_extraction.acoustic.jitter import calc_jitter
-from empkins_micro.feature_extraction.acoustic.glottal_noise import calc_gne
-from empkins_micro.feature_extraction.acoustic.pause_segment import calc_pause_segment
-from empkins_micro.feature_extraction.acoustic.voice_frame_score import calc_vfs
+from empkins_micro.feature_extraction.acoustic.shimmer import calc_shimmer, empty_shimmer
+from empkins_micro.feature_extraction.acoustic.jitter import calc_jitter, empty_jitter
+from empkins_micro.feature_extraction.acoustic.glottal_noise import calc_gne, empty_gne
+from empkins_micro.feature_extraction.acoustic.pause_segment import calc_pause_segment, empty_pause_segment
+from empkins_micro.feature_extraction.movement.voice_tremor import calc_voicetremor, empty_voicetremor
+from empkins_micro.feature_extraction.acoustic.voice_frame_score import calc_vfs, empty_vfs
 from empkins_micro.feature_extraction.movement.eyeblink import binarize_eyeblink
 from empkins_io.datasets.d03.macro_prestudy.helper import build_opendbm_tarfile_path, build_opendbm_raw_data_path
 from empkins_micro.feature_extraction.acoustic.helper import process_segment_pitch
-from empkins_micro.feature_extraction.movement.voice_tremor import calc_voicetremor
 from empkins_micro.feature_extraction.utils import segment_audio
 
 
@@ -28,14 +28,14 @@ class RawFeatureExtraction:
     _df_eyeblink: pd.DataFrame
 
     def __init__(
-        self,
-        base_path: path_t,
-        subject_id: str,
-        condition: str,
-        audio_path: Optional[path_t] = "",
-        diarization: Optional[pd.DataFrame] = None,
-        df_pitch: Optional[pd.DataFrame] = None,
-        df_eyeblink: Optional[pd.DataFrame] = None,
+            self,
+            base_path: path_t,
+            subject_id: str,
+            condition: str,
+            audio_path: Optional[path_t] = "",
+            diarization: Optional[pd.DataFrame] = None,
+            df_pitch: Optional[pd.DataFrame] = None,
+            df_eyeblink: Optional[pd.DataFrame] = None,
     ):
 
         self._base_path = base_path
@@ -71,135 +71,106 @@ class RawFeatureExtraction:
         with tarfile.open(tarfile_path_new, "w:gz") as tar:
             tar.add(data_path, arcname=os.path.basename(data_path))
 
+    def write_file(self, df, group, subgroup, data_path):
+        path = build_opendbm_raw_data_path(
+            subject_id=self._subject_id, condition=self._condition, group=group, subgroup=subgroup
+        )[0]
+        path = data_path.parent.joinpath(path)
+        os.mkdir(path.parent)
+        df.to_csv(path, index=False)
+
     def _acoustic_fe(self, data_path):
-        voice_seg = process_segment_pitch(self._df_pitch)
+        voice_seg, error_text = process_segment_pitch(self._df_pitch)
 
-        df_jitter = calc_jitter(self._audio_path, voice_seg)
-        df_shimmer = calc_shimmer(self._audio_path, voice_seg)
-        df_gne = calc_gne(self._audio_path, voice_seg)
+        if voice_seg is None:
+            df_jitter = empty_jitter(error_text)
+            df_shimmer = empty_shimmer(error_text)
+            df_gne = empty_gne(error_text)
+        else:
+            df_jitter = calc_jitter(self._audio_path, voice_seg)
+            df_shimmer = calc_shimmer(self._audio_path, voice_seg)
+            df_gne = calc_gne(self._audio_path, voice_seg)
 
-        jitter_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="jitter_recomputed"
-        )[0]
-        jitter_path = data_path.parent.joinpath(jitter_path)
-        os.mkdir(jitter_path.parent)
-        shimmer_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="shimmer_recomputed"
-        )[0]
-        shimmer_path = data_path.parent.joinpath(shimmer_path)
-        os.mkdir(shimmer_path.parent)
-        gne_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="acoustic", subgroup="gne_recomputed"
-        )[0]
-        gne_path = data_path.parent.joinpath(gne_path)
-        os.mkdir(gne_path.parent)
-
-        df_jitter.to_csv(jitter_path, index=False)
-        df_shimmer.to_csv(shimmer_path, index=False)
-        df_gne.to_csv(gne_path, index=False)
+        self.write_file(df_jitter, "acoustic", "jitter_recomputed", data_path)
+        self.write_file(df_shimmer, "acoustic", "shimmer_recomputed", data_path)
+        self.write_file(df_gne, "acoustic", "gne_recomputed", data_path)
 
     def _eyeblink_fe(self, data_path):
         df_eyeblink = binarize_eyeblink(self._df_eyeblink)
-
-        eyeblink_path = build_opendbm_raw_data_path(subject_id=self._subject_id, condition=self._condition,
-                                                    group="movement", subgroup="eyeblink_binarized")[0]
-        eyeblink_path = data_path.parent.joinpath(eyeblink_path)
-        os.mkdir(eyeblink_path.parent)
-        df_eyeblink.to_csv(eyeblink_path, index=False)
+        self.write_file(df_eyeblink, "movement", "eyeblink_binarized", data_path)
 
     def _segmented_fe(self, data_path):
         path_files = self._audio_path.parent.joinpath("audio_segments")
 
-        df_dia_seg = segment_audio(self._audio_path, self._subject_id,
-                                   self._condition, self._diarization, path_files)
+        df_dia_seg, error_text = segment_audio(self._base_path, self._audio_path, self._subject_id,
+                                               self._condition, self._diarization, path_files)
 
-        pause_segment = []
-        vfs = []
-        vt = []
+        if df_dia_seg is None:
+            df_pause_segment = empty_pause_segment(error_text)
+            df_vfs = empty_vfs(error_text)
+            df_vt = empty_voicetremor(error_text)
+        else:
+            pause_segment = []
+            vfs = []
+            vt = []
 
-        for idx, seg in df_dia_seg.iterrows():
-            tmp_audio_path = path_files.joinpath(f"{self._subject_id}_{self._condition}_seg_{idx}.wav")
-            assert tmp_audio_path.exists()
+            for idx, seg in df_dia_seg.iterrows():
+                tmp_audio_path = path_files.joinpath(f"{self._subject_id}_{self._condition}_seg_{idx}.wav")
+                tmp_audio_path_mono = tmp_audio_path.with_name(f"{self._subject_id}_{self._condition}_seg_{idx}_mono") \
+                    .with_suffix('.wav')
 
-            tmp_audio_path_mono = tmp_audio_path.with_name(f"{self._subject_id}_{self._condition}_seg_{idx}_mono") \
-                .with_suffix('.wav')
+                # pause segment
+                res_pause = calc_pause_segment(tmp_audio_path, tmp_audio_path_mono)
+                pause_segment.append(
+                    {
+                        "start": seg["start"],
+                        "stop": seg["stop"],
+                        "length": seg["length"],
+                        "aco_totaltime": res_pause.at[0, "aco_totaltime"],
+                        "aco_speakingtime": res_pause.at[0, "aco_speakingtime"],
+                        "aco_numpauses": res_pause.at[0, "aco_numpauses"],
+                        "aco_pausetime": res_pause.at[0, "aco_pausetime"],
+                        "aco_pausefrac": res_pause.at[0, "aco_pausefrac"],
+                        "error": res_pause.at[0, "error"]
+                    }
+                )
 
-            # pause segment
-            res_pause = calc_pause_segment(tmp_audio_path, tmp_audio_path_mono)
-            if isinstance(res_pause, str):
-                continue
-            pause_segment.append(
-                {
-                    "start": seg["start"],
-                    "stop": seg["stop"],
-                    "length": seg["length"],
-                    "aco_totaltime": res_pause.at[0, "aco_totaltime"],
-                    "aco_speakingtime": res_pause.at[0, "aco_speakingtime"],
-                    "aco_numpauses": res_pause.at[0, "aco_numpauses"],
-                    "aco_pausetime": res_pause.at[0, "aco_pausetime"],
-                    "aco_pausefrac": res_pause.at[0, "aco_pausefrac"]
-                }
-            )
+                # voice frame score
+                res_vfs = calc_vfs(tmp_audio_path)
+                vfs.append(
+                    {
+                        "start": seg["start"],
+                        "stop": seg["stop"],
+                        "length": seg["length"],
+                        "aco_voicepct": res_vfs.at[0, "aco_voicepct"],
+                        "error": res_vfs.at[0, "error"]
+                    }
+                )
 
-            # voice frame score
-            res_vfs = calc_vfs(tmp_audio_path)
-            if isinstance(res_vfs, str):
-                continue
-            vfs.append(
-                {
-                    "start": seg["start"],
-                    "stop": seg["stop"],
-                    "length": seg["length"],
-                    "aco_voicepct": res_vfs.at[0, "aco_voicepct"]
-                }
-            )
+                # voice tremor
+                res_vt = calc_voicetremor(tmp_audio_path)
+                vt.append(
+                    {
+                        "start": seg["start"],
+                        "stop": seg["stop"],
+                        "length": seg["length"],
+                        "mov_freqtremfreq": res_vt.at[0, "mov_freqtremfreq"],
+                        "mov_amptremfreq": res_vt.at[0, "mov_amptremfreq"],
+                        "mov_freqtremindex": res_vt.at[0, "mov_freqtremindex"],
+                        "mov_amptremindex": res_vt.at[0, "mov_amptremindex"],
+                        "mov_freqtrempindex": res_vt.at[0, "mov_freqtrempindex"],
+                        "mov_amptrempindex": res_vt.at[0, "mov_amptrempindex"],
+                        "error": res_vt.at[0, "error"]
+                    }
+                )
 
-            # voice tremor
-            res_vt = calc_voicetremor(tmp_audio_path)
-            if isinstance(res_vt, str):
-                continue
+            df_pause_segment = pd.DataFrame(pause_segment)
+            df_vfs = pd.DataFrame(vfs)
+            df_vt = pd.DataFrame(vt)
 
-            vt.append(
-                {
-                    "start": seg["start"],
-                    "stop": seg["stop"],
-                    "length": seg["length"],
-                    "mov_freqtremfreq": res_vt.at["0", "mov_freqtremfreq"],
-                    "mov_amptremfreq": res_vt.at["0", "mov_amptremfreq"],
-                    "mov_freqtremindex": res_vt.at["0", "mov_freqtremindex"],
-                    "mov_amptremindex": res_vt.at["0", "mov_amptremindex"],
-                    "mov_freqtrempindex": res_vt.at["0", "mov_freqtrempindex"],
-                    "mov_amptrempindex": res_vt.at["0", "mov_amptrempindex"],
-                }
-            )
-
-        df_pause_segment = pd.DataFrame(pause_segment)
-        df_vfs = pd.DataFrame(vfs)
-        df_vt = pd.DataFrame(vt)
-
-        pause_segment_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="acoustic",
-            subgroup="pause_segment_recomputed"
-        )[0]
-        pause_segment_path = data_path.parent.joinpath(pause_segment_path)
-        os.mkdir(pause_segment_path.parent)
-
-        vfs_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="acoustic",
-            subgroup="voice_frame_score_recomputed"
-        )[0]
-        vfs_path = data_path.parent.joinpath(vfs_path)
-        os.mkdir(vfs_path.parent)
-
-        vt_path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group="movement", subgroup="voice_tremor_recomputed"
-        )[0]
-        vt_path = data_path.parent.joinpath(vt_path)
-        os.mkdir(vt_path.parent)
-
-        df_pause_segment.to_csv(pause_segment_path, index=False)
-        df_vfs.to_csv(vfs_path, index=False)
-        df_vt.to_csv(vt_path, index=False)
+        self.write_file(df_pause_segment, "acoustic", "pause_segment_recomputed", data_path)
+        self.write_file(df_vfs, "acoustic", "voice_frame_score_recomputed", data_path)
+        self.write_file(df_vt, "movement", "voice_tremor_recomputed", data_path)
 
         shutil.rmtree(path_files)
 
