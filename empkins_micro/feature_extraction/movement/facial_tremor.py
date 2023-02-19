@@ -5,14 +5,14 @@ from pathlib import Path
 import pandas as pd
 import os
 
-def euclidean_distance(point1, point2):
+def _euclidean_distance(point1, point2):
     """
     Compute euclidean distance between points
     """
     return np.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
-def expand_landmarks(landmarks):
+def _expand_landmarks(landmarks):
     """
     util method to expand landmark list:
     eg: [1,2] -> [['l1_x', 'l1_y'], ['l2_x', 'l2_y']]
@@ -20,12 +20,12 @@ def expand_landmarks(landmarks):
     return [["l{}_x".format(point), "l{}_y".format(point)] for point in landmarks]
 
 
-def calc_displacement_vec(df, landmarks, num_frames):
+def _calc_displacement_vec(df, landmarks, num_frames):
     """
     Calculates displacement vector frame by frame
     """
 
-    landmarks = expand_landmarks(landmarks)
+    landmarks = _expand_landmarks(landmarks)
 
     disp_vec = np.zeros((len(landmarks), num_frames))
     prev_point = np.zeros((len(landmarks), 2))
@@ -40,14 +40,14 @@ def calc_displacement_vec(df, landmarks, num_frames):
         for j, pair in enumerate(landmarks):
             x, y = pair[0], pair[1]
             current = (frame_row[x], frame_row[y])
-            deviation = euclidean_distance(current, prev_point[j])
+            deviation = _euclidean_distance(current, prev_point[j])
             disp_vec[j][i] = deviation
             prev_point[j] = current
 
     return disp_vec
 
 
-def compute_features(df_of, config_path):
+def _compute_features(df_of, config_path):
     """Computes features
     Returns: features in vector format
     """
@@ -74,7 +74,7 @@ def compute_features(df_of, config_path):
     try:
 
         if num_frames == 0:
-            return empty_facial_tremor("no frames with visible face")
+            return _empty_facial_tremor("no frames with visible face")
 
         first_row = df_of.iloc[0]
 
@@ -87,15 +87,15 @@ def compute_features(df_of, config_path):
         )
 
         if facew == 0 or faceh == 0:
-            return empty_facial_tremor("face width or height = 0. Check landmark values")
+            return _empty_facial_tremor("face width or height = 0. Check landmark values")
 
-        fac_disp = calc_displacement_vec(df_of, landmarks, num_frames)
+        fac_disp = _calc_displacement_vec(df_of, landmarks, num_frames)
 
         if len(fac_disp.shape) != 2:
-            return empty_facial_tremor("fac_disp is not 2D. smth went wrong with disp calc")
+            return _empty_facial_tremor("fac_disp is not 2D. smth went wrong with disp calc")
 
         if len(fac_disp[0]) <= 1:
-            return empty_facial_tremor("Video too short. smth went wrong with disp calc")
+            return _empty_facial_tremor("Video too short. smth went wrong with disp calc")
 
         fac_disp_median = np.median(fac_disp, axis=1)
 
@@ -123,10 +123,10 @@ def compute_features(df_of, config_path):
         return data
 
     except Exception as e:
-        return empty_facial_tremor(f"error while computing facial tremor features: {e}")
+        return _empty_facial_tremor(f"error while computing facial tremor features: {e}")
 
 
-def empty_facial_tremor(error_text):
+def _empty_facial_tremor(error_text):
     data = {
         "fac_tremor_median_5_mean": [np.nan],
         "fac_tremor_median_12_mean": [np.nan],
@@ -147,6 +147,6 @@ def calc_facial_tremor(df_of):
         config_path = Path(os.path.realpath(os.path.dirname(__file__)))
         config_path = config_path.parent
         config_path = str(config_path.joinpath("resources", "facial_tremor_config.json"))
-        return compute_features(df_of, config_path)
+        return _compute_features(df_of, config_path)
     except Exception as e:
-        return empty_facial_tremor(f"failed to process video file for facial_tremor: {e}")
+        return _empty_facial_tremor(f"failed to process video file for facial_tremor: {e}")
