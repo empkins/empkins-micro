@@ -16,7 +16,7 @@ class BaseExtraction(Algorithm):
     # input parameters
 
     # results
-    fiducial_points_positions_: pd.Series
+    points_positions_: pd.Series
 
     # constants
 
