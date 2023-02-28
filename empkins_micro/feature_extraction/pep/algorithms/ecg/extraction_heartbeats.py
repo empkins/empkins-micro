@@ -64,10 +64,9 @@ class HeartBeatExtraction(Algorithm):
         _, r_peaks = nk.ecg_peaks(ecg_clean, sampling_rate=sampling_rate_hz, method="neurokit")
         r_peaks = r_peaks["ECG_R_Peaks"]
 
-        heartbeats = pd.DataFrame(index=np.arange(len(r_peaks)), columns=["heartbeat_start_time",
-                                                                          "heartbeat_start_sample",
-                                                                          "heartbeat_end_sample",
-                                                                          "r_peak_sample"])
+        idx = pd.RangeIndex.from_range(range(0, len(r_peaks)))
+        heartbeats = pd.DataFrame(index=idx, columns=["heartbeat_start_time", "heartbeat_start_sample",
+                                                      "heartbeat_end_sample", "r_peak_sample"])
         heartbeats["r_peak_sample"] = r_peaks
 
         if self.variable_length:
@@ -92,7 +91,8 @@ class HeartBeatExtraction(Algorithm):
             beat_ends = beat_starts.shift(-1)  # end is exclusive
 
             # extrapolate last beats end based on RR-interval of previous beat
-            last_beat_end = round(heartbeats["r_peak_sample"].iloc[-1] + (1 - self.start_factor) * rr_interval_samples.iloc[-1])
+            last_beat_end = round(
+                heartbeats["r_peak_sample"].iloc[-1] + (1 - self.start_factor) * rr_interval_samples.iloc[-1])
             if last_beat_end < len(ecg_clean):
                 beat_ends.iloc[-1] = last_beat_end
             else:
@@ -110,7 +110,6 @@ class HeartBeatExtraction(Algorithm):
 
             heartbeat_segments = nk.ecg_segment(ecg_clean, rpeaks=r_peaks, sampling_rate=sampling_rate_hz, show=False)
             for segment_idx in heartbeat_segments.keys():
-
                 # extract sample number of start, end, r peak, and datetime of start from current segment
                 segment = heartbeat_segments[segment_idx].reset_index(drop=True)
                 start = segment["Index"].iloc[0]
@@ -124,11 +123,11 @@ class HeartBeatExtraction(Algorithm):
                 heartbeats["heartbeat_start_time"].iloc[int(segment_idx) - 1] = start_time
 
         # check if R-peak occurs between corresponding start and end
-        check = heartbeats.apply(lambda x: x["heartbeat_start_sample"] < x["r_peak_sample"] < x["heartbeat_end_sample"], axis=1)
-        if len(check.index[check is False]) > 0:
+        check = heartbeats.apply(lambda x: x["heartbeat_start_sample"] < x["r_peak_sample"] < x["heartbeat_end_sample"],
+                                 axis=1)
+        if len(check[check == False]) > 0:
             raise ValueError(
-                f"Start, end, or r-peak position of heartbeat {list(check.index[check is False])} could be incorrect!")
+                f"Start, end, or r-peak position of heartbeat {list(check[check == False].index)} could be incorrect!")
 
         self.heartbeat_list_ = heartbeats
         return self
-
