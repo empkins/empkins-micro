@@ -2,13 +2,14 @@ from abc import abstractmethod
 
 import pandas as pd
 from tpcp import Algorithm, Parameter, make_action_safe
+from typing import List
 
 
 class BaseExtraction(Algorithm):
-    """
-    base class which defines the interface for all fiducial point extraction algorithms for ecg data
-    xx: xx Pandas Dataframe containing the respiration Signal
-    result: xx Saves resulting respiration rate as attribute in respiration_rate
+    """base class which defines the interface for all fiducial point extraction algorithms
+
+    results:
+        points_ : saves positions of extracted points in pd.DataFrame
     """
 
     _action_methods = "extract"
@@ -16,17 +17,37 @@ class BaseExtraction(Algorithm):
     # input parameters
 
     # results
-    points_positions_: pd.Series
+    points_: pd.DataFrame
 
-    # constants
-
-    #def __init__(self):
-
-    # interface method (is implemented within each subclass)
+    # interface method
     @abstractmethod
     @make_action_safe
-    def extract(self, signal: pd.DataFrame, heart_beats_list: pd.DataFrame, sampling_rate_hz: float):
+    def extract(self, signal: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+        """function which extracts specific fiducial points from signal, implementation within subclasses"""
+
         pass
 
+    @staticmethod
+    def match_points_heartbeats(self, points: List[int], heartbeats: pd.DataFrame) -> pd.DataFrame:
+        """matches the given points to the corresponding heartbeats
 
+        (such that returned DataFrame's format matches heartbeats df)
+
+        Args:
+            points: list of fiducial points of signal (samples)
+            heartbeats: pd.DataFrame as returned by HeartBeatExtraction
+
+        Returns:
+            pd.DataFrame with point locations saved in row of associated heartbeat
+        """
+
+        points_heartbeats = pd.DataFrame(index=heartbeats.index, columns=["points"])
+
+        # TODO evt check, ob länge gleich ist, ob punkt übrig ist, ob zB q-peak vor r liegt oder sowas?
+        for p in points:
+            # find heartbeat to which point belongs and write point into corresponding row
+            idx = heartbeats.loc[(heartbeats["heartbeat_start_sample"] < p) & (p < heartbeats["heartbeat_end_sample"])].index
+            points_heartbeats["points"].loc[idx] = p
+
+        return points_heartbeats
 
