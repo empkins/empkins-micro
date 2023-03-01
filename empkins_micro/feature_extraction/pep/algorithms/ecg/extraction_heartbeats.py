@@ -64,9 +64,9 @@ class HeartBeatExtraction(Algorithm):
         _, r_peaks = nk.ecg_peaks(ecg_clean, sampling_rate=sampling_rate_hz, method="neurokit")
         r_peaks = r_peaks["ECG_R_Peaks"]
 
-        heartbeats = pd.DataFrame(index=np.arange(0, len(r_peaks)), columns=["heartbeat_start_time",
-                                                                             "heartbeat_start_sample",
-                                                                             "heartbeat_end_sample",
+        heartbeats = pd.DataFrame(index=np.arange(0, len(r_peaks)), columns=["start_time",
+                                                                             "start_sample",
+                                                                             "end_sample",
                                                                              "r_peak_sample"])
         heartbeats["r_peak_sample"] = r_peaks
 
@@ -86,7 +86,7 @@ class HeartBeatExtraction(Algorithm):
                 beat_starts = beat_starts.iloc[1:].reset_index(drop=True)  # drop row, when heartbeat is incomplete
                 heartbeats = heartbeats.iloc[1:].reset_index(drop=True)
             beat_starts = round(beat_starts).astype(int)
-            heartbeats["heartbeat_start_sample"] = beat_starts
+            heartbeats["start_sample"] = beat_starts
 
             # calculate beat ends (last beat ends 1 sample before next starts, end is exclusive)
             beat_ends = beat_starts.shift(-1)  # end is exclusive
@@ -100,11 +100,11 @@ class HeartBeatExtraction(Algorithm):
                 beat_ends = beat_ends.iloc[:-1]  # drop row, when heart beat is incomplete
                 heartbeats = heartbeats.iloc[:-1]
             beat_ends = beat_ends.astype(int)
-            heartbeats["heartbeat_end_sample"] = beat_ends
+            heartbeats["end_sample"] = beat_ends
 
             # extract time of each beat's start
-            beat_starts_time = ecg_clean.iloc[heartbeats["heartbeat_start_sample"]].index
-            heartbeats["heartbeat_start_time"] = beat_starts_time
+            beat_starts_time = ecg_clean.iloc[heartbeats["start_sample"]].index
+            heartbeats["start_time"] = beat_starts_time
 
         else:
             # split ecg signal into heartbeats with fixed length
@@ -119,19 +119,19 @@ class HeartBeatExtraction(Algorithm):
 
                 # fill the corresponding row of heartbeats for current segment
                 # (idx-1 because segments keys start with 1, but heartbeats_list should start with 0)
-                heartbeats["heartbeat_start_sample"].iloc[int(segment_idx) - 1] = start
-                heartbeats["heartbeat_end_sample"].iloc[int(segment_idx) - 1] = end
-                heartbeats["heartbeat_start_time"].iloc[int(segment_idx) - 1] = start_time
+                heartbeats["start_sample"].iloc[int(segment_idx) - 1] = start
+                heartbeats["end_sample"].iloc[int(segment_idx) - 1] = end
+                heartbeats["start_time"].iloc[int(segment_idx) - 1] = start_time
 
         # ensures that index is Int64Index (not RangeIndex) because some neurokit functions won't work  with RangeIndex
         heartbeats.index = list(heartbeats.index)
+        heartbeats.index.name = "heartbeat_id"
 
         # check if R-peak occurs between corresponding start and end
-        check = heartbeats.apply(lambda x: x["heartbeat_start_sample"] < x["r_peak_sample"] < x["heartbeat_end_sample"],
+        check = heartbeats.apply(lambda x: x["start_sample"] < x["r_peak_sample"] < x["end_sample"],
                                  axis=1)
-        if len(check[check is False]) > 0:
-            raise ValueError(
-                f"Start, end, or r-peak position of heartbeat {list(check[check is False].index)} could be incorrect!")
+        if len(check.loc[check == False]) > 0:
+            raise ValueError(f"Start, end, or r-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
 
         self.heartbeat_list_ = heartbeats
         return self

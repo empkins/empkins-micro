@@ -41,13 +41,13 @@ class BaseExtraction(Algorithm):
             pd.DataFrame with point locations saved in row of associated heartbeat
         """
 
-        points_heartbeats = pd.DataFrame(index=heartbeats.index, columns=["points"])
+        points_heartbeats = pd.DataFrame(index=heartbeats.index, columns=["point_sample"])
 
         # TODO evt check, ob länge gleich ist, ob punkt übrig ist, ob zB q-peak vor r liegt oder sowas?
         for p in points:
             # find heartbeat to which point belongs and write point into corresponding row
-            idx = heartbeats.loc[(heartbeats["heartbeat_start_sample"] < p) & (p < heartbeats["heartbeat_end_sample"])].index
-            points_heartbeats["points"].loc[idx] = p
+            idx = heartbeats.loc[(heartbeats["start_sample"] < p) & (p < heartbeats["end_sample"])].index
+            points_heartbeats["point_sample"].loc[idx] = p
 
         return points_heartbeats
 
