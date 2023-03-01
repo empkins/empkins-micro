@@ -8,7 +8,7 @@ from empkins_micro.feature_extraction.pep.algorithms.base_extraction import Base
 
 
 class QPeakExtractionNeurokit(BaseExtraction):
-    """algorithm to extract Q-wave peaks (which equals the R-wave onset) from ECG signal"""
+    """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit's ecg_delineate function"""
 
     @make_action_safe
     def extract(self, signal: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
