@@ -14,16 +14,14 @@ class BaseExtraction(Algorithm):
 
     _action_methods = "extract"
 
-    # input parameters
-
     # results
     points_: pd.DataFrame
 
     # interface method
     @abstractmethod
     @make_action_safe
-    def extract(self, signal: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
-        """function which extracts specific fiducial points from signal, implementation within subclasses"""
+    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+        """function which extracts specific fiducial points from cleaned signal, implementation within subclasses"""
 
         pass
 
