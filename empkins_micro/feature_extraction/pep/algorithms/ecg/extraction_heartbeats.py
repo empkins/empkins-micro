@@ -8,7 +8,7 @@ from tpcp import Algorithm, Parameter, make_action_safe
 
 
 class HeartBeatExtraction(Algorithm):
-    """segment ECG signal into heartbeats"""
+    """finds R-peaks and segments ECG signal into heartbeats"""
 
     _action_methods = "extract"
 
@@ -58,8 +58,8 @@ class HeartBeatExtraction(Algorithm):
             self: fills heartbeat_list_
         """
 
-        # TODO methode r peaks? neurokit, promac, ... ?
-        # TODO correct artifacts?
+        # TODO methode r peaks? neurokit, pan-tompkins, promac, ... vlt pan tompkins ?
+        # TODO correct artifacts = True?
 
         _, r_peaks = nk.ecg_peaks(ecg_clean, sampling_rate=sampling_rate_hz, method="neurokit")
         r_peaks = r_peaks["ECG_R_Peaks"]
