@@ -32,9 +32,9 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
         _, waves = nk.ecg_delineate(signal_clean, rpeaks=r_peaks, sampling_rate=sampling_rate_hz, method="dwt",
                                     show=True, show_type="peaks")  # show can also be set to False
 
-        points = waves["ECG_Q_Peaks"]
-        points = super().match_points_heartbeats(self, points=points, heartbeats=heartbeats)
+        q_peaks = waves["ECG_Q_Peaks"]
+        q_peaks = super().match_points_heartbeats(self, points=q_peaks, heartbeats=heartbeats)
 
-        self.points_ = points
+        self.points_ = q_peaks
         return self
 
