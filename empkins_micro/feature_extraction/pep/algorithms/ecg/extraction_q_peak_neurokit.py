@@ -1,14 +1,13 @@
-import pandas as pd
-import numpy as np
 import neurokit2 as nk
-
-from tpcp import Algorithm, Parameter, make_action_safe
+import pandas as pd
+from tpcp import make_action_safe
 
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
 
 
-class QPeakExtractionNeurokit(BaseExtraction):
-    """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit's ecg_delineate function"""
+class QPeakExtraction_NeurokitDWT(BaseExtraction):
+    """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit's ecg_delineate function with
+    discrete wavelet method"""
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
