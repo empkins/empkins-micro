@@ -4,6 +4,8 @@ from empkins_micro.utils._types import path_t
 from typing import Optional
 from empkins_micro.feature_extraction.movement.facial_tremor import calc_facial_tremor
 from empkins_micro.feature_extraction.utils.derived_fe_dict import get_derived_fe_dict, get_fe_dict_structure
+import empkins_micro.feature_extraction.derived.derived_features as fea
+from empkins_micro.feature_extraction.derived.pause_segment import pause_features
 
 
 class DerivedFeatureExtraction:
@@ -81,131 +83,38 @@ class DerivedFeatureExtraction:
 
         self._feature_groups = get_fe_dict_structure()
 
-    def _get_weights(self, weight_type):
-        if self._acoustic_seg_data is not None:
-            num_values_aco = len(self._acoustic_seg_data.index)
-        else:
-            num_values_aco = None
+    def _calc_features(self, df, data, group, weights: Optional[np.array] = None):
+        mean_weighted = lambda x: fea.mean_weighted(x, weights)
+        mean_weighted.__name__ = "mean"
 
-        if self._audio_seg_data is not None:
-            num_values_audio = len(self._audio_seg_data.index)
-        else:
-            num_values_audio = None
+        std_weighted = lambda x: fea.std_weighted(x, weights)
+        std_weighted.__name__ = "std"
 
-        if weight_type == num_values_aco:
-            weights = (self._acoustic_seg_data["end_time"] - self._acoustic_seg_data["start_time"]).to_numpy()
-        elif weight_type == num_values_audio:
-            weights = self._audio_seg_data["length"].to_numpy()
-        else:
-            weights = None
-        return weights
-
-    def mean(self, data):
-        df = data.astype(float).copy()
-        df = df.dropna().reset_index(drop=True)
-        val = df.mean(axis=0, skipna=True)
-        return val
-
-    def std(self, data):
-        df = data.astype(float).copy()
-        df = df.dropna().reset_index(drop=True)
-        val = df.std(axis=0, skipna=True)
-        return val
-
-    def range(self, data):
-        df = data.astype(float).copy()
-        df = df.dropna().reset_index(drop=True)
-        val = max(df) - min(df)
-        return val
-
-    def pct(self, data):
-        df = data.astype(float).copy()
-        df = df.dropna().reset_index(drop=True)
-        val = len(df[df > 0.0]) / len(df)
-        return val
-
-    def wmean(self, data):
-        weights = self._get_weights(len(data.index))
-        if weights is not None:
-            indices = data.isna()
-            df = data.astype(float).copy()
-            df = df.dropna().reset_index(drop=True)
-            weights = weights[~indices]
-            val = np.average(df, weights=weights)
-            return val
-        return np.nan
-
-    def wstd(self, data):
-        weights = self._get_weights(len(data.index))
-        if weights is not None:
-            indices = data.isna()
-            df = data.astype(float).copy()
-            df = df.dropna().reset_index(drop=True)
-            weights = weights[~indices]
-            val = np.sqrt(np.cov(df.to_numpy(), aweights=weights))
-            return val
-        return np.nan
-
-    def count(self, data):
-        val = sum(data) * 60.0 / data.index[-1]
-        return val
-
-    def _calc_blinks_diff(self, data):
-        time = data.index.to_numpy()
-        indices = np.where(data == 1)[0]
-        time_blinks = time[indices]
-        time_blinks_diff = np.diff(time_blinks)
-        return time_blinks_diff
-
-    def dur_mean(self, data):
-        time_blinks_diff = self._calc_blinks_diff(data)
-        val = np.mean(time_blinks_diff)
-        return val
-
-    def dur_std(self, data):
-        time_blinks_diff = self._calc_blinks_diff(data)
-        val = np.std(time_blinks_diff)
-        return val
-
-    def pause_features(self, data):
-        features = {
-            "aco_pausetime_mean": [data["aco_pausetime"].sum()],
-            "aco_totaltime_mean": [data["aco_totaltime"].sum()],
-            "aco_numpauses_mean": [data["aco_numpauses"].sum()],
-            "aco_pausefrac_mean": [data["aco_pausetime"].sum() / data["aco_totaltime"].sum()]
-        }
-        return pd.DataFrame.from_dict(features)
-
-    def _calc_features(self, df, group, subgroup, fun_dict):
-        fea_dict = get_derived_fe_dict(group=group, subgroup=subgroup)
-        variables = list(fea_dict["raw_features"])
-        features = list(fea_dict["derived_features"])
-        df_derived = df[variables].agg(list(map(fun_dict.get, features)))
-        df_derived = pd.DataFrame(df_derived.unstack()).T
-        df_derived.columns = ["_".join(col) for col in df_derived.columns]
-        return df_derived
-
-    def _run_calc_features(self, df, data, group):
         fun_dict = {
-            "mean": self.mean,
-            "std": self.std,
-            "wmean": self.wmean,
-            "wstd": self.wstd,
-            "range": self.range,
-            "pct": self.pct,
-            "count": self.count,
-            "dur_mean": self.dur_mean,
-            "dur_std": self.dur_std
+            "mean": fea.mean,
+            "std": fea.std,
+            "wmean": mean_weighted,
+            "wstd": std_weighted,
+            "range": fea.range,
+            "pct": fea.pct,
+            "count": fea.count,
+            "dur_mean": fea.dur_mean,
+            "dur_std": fea.dur_std
         }
 
         for i in range(self._feature_groups[group]):
-            tmp = self._calc_features(
-                df=data, group=group, subgroup=f"group_{i + 1}", fun_dict=fun_dict)
-            df = pd.concat([df, tmp], axis=1)
+            subgroup = f"group_{i + 1}"
+            fea_dict = get_derived_fe_dict(group=group, subgroup=subgroup)
+            variables = list(fea_dict["raw_features"])
+            features = list(fea_dict["derived_features"])
+            df_derived = data[variables].agg(list(map(fun_dict.get, features)))
+            df_derived = pd.DataFrame(df_derived.unstack()).T
+            df_derived.columns = ["_".join(col) for col in df_derived.columns]
+            df = pd.concat([df, df_derived], axis=1)
 
         return df
 
-    def _run_empty_features(self, df, group):
+    def _empty_features(self, df, group):
         for i in range(self._feature_groups[group]):
             fea_dict = get_derived_fe_dict(group=group, subgroup=f"group_{i + 1}")
             variables = list(fea_dict["raw_features"])
@@ -220,44 +129,45 @@ class DerivedFeatureExtraction:
         df = pd.DataFrame()
 
         if self._facial_data is not None:  # facial data
-            df = self._run_calc_features(df, self._facial_data, "facial")
+            df = self._calc_features(df, self._facial_data, "facial")
         else:
-            df = self._run_empty_features(df, "facial")
+            df = self._empty_features(df, "facial")
 
         if self._acoustic_data is not None:  # acoustic data
-            df = self._run_calc_features(df, self._acoustic_data, "acoustic")
+            df = self._calc_features(df, self._acoustic_data, "acoustic")
         else:
-            df = self._run_empty_features(df, "acoustic")
+            df = self._empty_features(df, "acoustic")
 
         if self._movement_data is not None:  # movement data
-            df = self._run_calc_features(df, self._movement_data, "movement")
+            df = self._calc_features(df, self._movement_data, "movement")
         else:
-            df = self._run_empty_features(df, "movement")
+            df = self._empty_features(df, "movement")
 
         if self._eyeblink_ear_data is not None:  # movement - eyeblink - ear
-            df = self._run_calc_features(df, self._eyeblink_ear_data, "eyeblink_ear")
+            df = self._calc_features(df, self._eyeblink_ear_data, "eyeblink_ear")
         else:
-            df = self._run_empty_features(df, "eyeblink_ear")
+            df = self._empty_features(df, "eyeblink_ear")
 
         if self._acoustic_seg_data is not None:  # acoustic segmented data
-            df = self._run_calc_features(df, self._acoustic_seg_data, "acoustic_seg")
+            weights = (self._acoustic_seg_data["end_time"] - self._acoustic_seg_data["start_time"]).to_numpy()
+            df = self._calc_features(df, self._acoustic_seg_data, "acoustic_seg", weights)
         else:
-            df = self._run_empty_features(df, "acoustic_seg")
+            df = self._empty_features(df, "acoustic_seg")
 
         if self._audio_seg_data is not None:  # audio segmented data
-            df = self._run_calc_features(df, self._audio_seg_data, "audio_seg")
-            tmp = self.pause_features(self._audio_seg_data)  # pause features
+            weights = self._audio_seg_data["length"].to_numpy()
+            df = self._calc_features(df, self._audio_seg_data, "audio_seg", weights)
+            tmp = pause_features(self._audio_seg_data)  # pause features
             df = pd.concat([df, tmp], axis=1)
         else:
-            df = self._run_empty_features(df, "audio_seg")
-            df = self._run_empty_features(df, "pause")
+            df = self._empty_features(df, "audio_seg")
+            df = self._empty_features(df, "pause")
 
         if self._facial_tremor_data is not None:  # movement - facial tremor
             tmp = calc_facial_tremor(self._facial_tremor_data)
             tmp = tmp.drop(["error"], axis=1)
             df = pd.concat([df, tmp], axis=1)
         else:
-            df = self._run_empty_features(df, "facial_tremor", )
+            df = self._empty_features(df, "facial_tremor", )
 
         return df
-
