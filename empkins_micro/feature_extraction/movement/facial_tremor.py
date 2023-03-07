@@ -114,7 +114,7 @@ def _compute_features(df_of, config_path):
         fac_features_dict = {}
         for i, landmark in enumerate(landmarks):
 
-            fac_features_dict["fac_disp_median_{}_mean".format(landmark)] = [
+            fac_features_dict["fac_tremor_median_{}_mean".format(landmark)] = [
                 fac_features_median[i]
             ]
 
