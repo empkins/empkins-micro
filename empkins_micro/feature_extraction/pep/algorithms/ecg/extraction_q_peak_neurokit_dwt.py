@@ -5,7 +5,7 @@ from tpcp import make_action_safe
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
 
 
-class QPeakExtraction_NeurokitDWT(BaseExtraction):
+class QPeakExtraction_NeurokitDwt(BaseExtraction):
     """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit's ecg_delineate function with
     discrete wavelet method"""
 
