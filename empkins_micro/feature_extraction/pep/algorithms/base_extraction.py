@@ -26,7 +26,7 @@ class BaseExtraction(Algorithm):
         pass
 
     @staticmethod
-    def match_points_heartbeats(self, points: List[int], heartbeats: pd.DataFrame) -> pd.DataFrame:
+    def match_points_heartbeats(points: List[int], heartbeats: pd.DataFrame) -> pd.DataFrame:
         """matches the given points to the corresponding heartbeats
 
         (such that returned DataFrame's format matches heartbeats df)
@@ -39,9 +39,9 @@ class BaseExtraction(Algorithm):
             pd.DataFrame with point locations saved in row of associated heartbeat
         """
 
-        points_heartbeats = pd.DataFrame(index=heartbeats.index, columns=["point_sample"])
+        points_heartbeats = pd.DataFrame(index=heartbeats.index, columns=["point_sample"])  # create result df
 
-        # TODO evt check, ob länge gleich ist, ob punkt übrig ist, ob zB q-peak vor r liegt oder sowas?
+        # TODO evt check, ob länge gleich ist, ob punkt übrig ist, ob zB q-peak vor r liegt oder sowas (warnings für sanity checks)?
         for p in points:
             # find heartbeat to which point belongs and write point into corresponding row
             idx = heartbeats.loc[(heartbeats["start_sample"] < p) & (p < heartbeats["end_sample"])].index
