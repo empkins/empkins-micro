@@ -1,3 +1,5 @@
+import warnings
+
 import neurokit2 as nk
 import pandas as pd
 from tpcp import make_action_safe
@@ -6,7 +8,7 @@ from empkins_micro.feature_extraction.pep.algorithms.base_extraction import Base
 
 
 class QPeakExtraction_NeurokitDwt(BaseExtraction):
-    """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit's ecg_delineate function with
+    """algorithm to extract Q-wave peaks (= R-wave onset) from ECG signal using neurokit ecg_delineate function with
     discrete wavelet method"""
 
     @make_action_safe
@@ -23,18 +25,29 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
                 sampling rate of ECG signal in hz
 
         Returns:
-            saves resulting Q-peak locations (samples) in points_ attribute of super class, index is heartbeat id
+            saves resulting Q-peak locations (samples) in points_ attribute of super class (in the row of the heartbeat
+            to which the respective Q-peak corresponds), index is heartbeat id
         """
+
+        # result df
+        q_peaks = pd.DataFrame(index=heartbeats.index, columns=["q_peak"])
 
         # some neurokit functions (for example ecg_delineate()) don't work with r-peaks input as Series, so list instead
         r_peaks = list(heartbeats["r_peak_sample"])
 
         _, waves = nk.ecg_delineate(signal_clean, rpeaks=r_peaks, sampling_rate=sampling_rate_hz, method="dwt",
-                                    show=True, show_type="peaks")  # show can also be set to False
+                                    show=False, show_type="peaks")  # show can also be set to False
 
-        q_peaks = waves["ECG_Q_Peaks"]
-        q_peaks = super().match_points_heartbeats(self, points=q_peaks, heartbeats=heartbeats)
+        extracted_q_peaks = waves["ECG_Q_Peaks"]
+
+        # find heartbeat to which Q-peak belongs and save Q-peak position in corresponding row
+        for q in extracted_q_peaks:
+            heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index
+            q_peaks["q_peak"].loc[heartbeat_idx] = q
+
+            if heartbeats["r_peak_sample"].loc[heartbeat_idx].item() < q:
+                warnings.warn("Detected Q-peak occurs after R-peak (physiologically wrong) in heartbeat " + str(
+                    heartbeat_idx) + ". Maybe double check?!")
 
         self.points_ = q_peaks
         return self
-
