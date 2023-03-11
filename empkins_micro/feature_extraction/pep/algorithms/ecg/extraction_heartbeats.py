@@ -21,7 +21,7 @@ class HeartBeatExtraction(Algorithm):
 
     def __init__(
             self,
-            variable_length: bool,
+            variable_length: Optional[bool] = True,
             start_factor: Optional[float] = 0.35
     ):
         """initialize new HeartBeatExtraction algorithm instance
