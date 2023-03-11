@@ -13,7 +13,7 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
     """algorithm to extract C-points from ICG derivative signal using scipy's find_peaks function"""
 
     # input parameters
-    window_r_c_distance: Parameter[int]
+    window_c_correction: Parameter[int]
     save_candidates: Parameter[bool]
 
     def __init__(
@@ -89,14 +89,12 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 heartbeats_no_c.append(idx)
                 selected_c = np.NaN
                 r_c_distance = np.NaN
-                warnings.warn("No C-point detected in " + str(len(heartbeats_no_c)) + " heartbeats (" + str(
-                    heartbeats_no_c) + ")")
 
             else:
                 # calculates distance of R-peak to all C-candidates in samples, positive when C occurs after R
                 r_c_distance = heartbeat_c_candidates - heartbeat_r_peak
 
-                if len(heartbeat_c_candidates == 1):
+                if len(heartbeat_c_candidates) == 1:
                     selected_c = heartbeat_c_candidates[0]  # convert to int (instead of array)
                     r_c_distance = r_c_distance[0]
                     if r_c_distance < 0:
@@ -131,6 +129,9 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 for c in heartbeat_c_candidates:
                     c_points.at[idx, "c_candidates"].append(c + heartbeat_start)
 
+            if len(heartbeats_no_c) > 0:
+                warnings.warn("No C-point detected in " + str(len(heartbeats_no_c)) + " heartbeats (" + str(
+                    heartbeats_no_c) + ")")
+
         self.points_ = c_points
         return self
-
