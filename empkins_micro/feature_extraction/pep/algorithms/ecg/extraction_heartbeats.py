@@ -131,7 +131,8 @@ class HeartBeatExtraction(Algorithm):
         check = heartbeats.apply(lambda x: x["start_sample"] < x["r_peak_sample"] < x["end_sample"],
                                  axis=1)
         if len(check.loc[check == False]) > 0:
-            raise ValueError(f"Start, end, or r-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
+            raise ValueError(
+                f"Start/end/R-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
 
         self.heartbeat_list_ = heartbeats
         return self
