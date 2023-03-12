@@ -7,7 +7,7 @@ from tpcp import Algorithm, make_action_safe
 class BaseExtraction(Algorithm):
     """base class which defines the interface for all fiducial point extraction algorithms
 
-    results:
+    Results:
         points_ : saves positions of extracted points in pd.DataFrame
     """
 
