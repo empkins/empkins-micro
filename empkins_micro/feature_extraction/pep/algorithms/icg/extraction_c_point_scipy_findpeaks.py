@@ -23,13 +23,12 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
     ):
         """initialize new CPointExtraction_ScipyFindPeaks algorithm instance
 
-        Parameters
-        ----------
-        window_c_correction : int
-            how many preceding heartbeats are taken into account for C-point correction (using mean R-C-distance)
-        save_candidates : bool
-            indicates whether only the selected C-point position (one per heartbeat) is saved in _points (False),
-            or also all other C-candidates (True)
+        Args:
+            window_c_correction : int
+                how many preceding heartbeats are taken into account for C-point correction (using mean R-C-distance)
+            save_candidates : bool
+                indicates whether only the selected C-point position (one per heartbeat) is saved in _points (False),
+                or also all other C-candidates (True)
         """
 
         self.window_c_correction = window_c_correction
