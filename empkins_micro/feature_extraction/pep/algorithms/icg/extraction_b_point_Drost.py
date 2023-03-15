@@ -10,8 +10,9 @@ from empkins_micro.feature_extraction.pep.algorithms.base_extraction import Base
 import warnings
 
 
-class BPointExtractionDebski(BaseExtraction):
-    """algorithm to extract B-point based on the reversal (local minimum) of dZ^^2/dt^^2 before the C point"""
+class BPointExtractionDrost(BaseExtraction):
+    """algorithm to extract B-point based on the maximum distance of the dZ/dt curve and a straight line
+    from the C-Point to the Point on the dZ/dt curve 150 ms before the C-Point"""
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
@@ -37,54 +38,72 @@ class BPointExtractionDebski(BaseExtraction):
         # Create the b_point Dataframe with the index of the heartbeat_list
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
 
-        # get the r_peak locations from the heartbeat_list and check if any entries contain NaN
-        r_peaks = heartbeats['r_peak_sample']
-        check_r_peaks = np.isnan(r_peaks.values)
-
         # get the c_point locations and check if any entries contain NaN
         c_points = c_points['c_point']
         check_c_points = np.isnan(c_points.values.astype(float))
-
-        # Compute the second derivative of the ICG-signal
-        icg_2nd_der = np.gradient(signal_clean)
 
         # go trough each R-C interval independently and search for the local minima
         for idx, data in heartbeats.iterrows():
             # check if r_peaks/c_points contain NaN. If this is the case, set the b_point to NaN and continue
             # with the next iteration
-            if check_r_peaks[idx] | check_c_points[idx]:
+            if check_c_points[idx]:
                 b_points['b_point'].iloc[idx] = np.NaN
                 warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx}! "
                               f"B-Point was set to NaN.")
                 continue
             else:
                 # set the borders of the interval between the R-Peak and the C-Point
-                start_r_c = r_peaks[idx]
-                end_r_c = c_points[idx]
+                c_point = c_points[idx]
 
-            # Select the specific interval in the second derivative of the ICG-signal
-            icg_search_window = icg_2nd_der[start_r_c:end_r_c]
+            # Get the start_position of the straight line 150 ms before the C-Point
+            line_start = c_point - int((150/1000) * sampling_rate_hz)
 
-            # Compute the local minima in this interval
-            icg_min = argrelmin(icg_search_window)
+            # Compute the values of the straight line
+            line_values = self.get_line_values(line_start, signal_clean[line_start], c_point, signal_clean[c_point])
 
-            # Compute the distance between the C-point and the minima of the interval and select the entry with
-            # the minimal distance as B-point
-            if len(icg_min[0]) >= 1:
-                distance = end_r_c - icg_min
-                b_point_idx = distance.argmin()
-                b_point = icg_min[0][b_point_idx]
-                # Compute the absolute sample position of the local B-point
-                b_point = b_point + start_r_c
-            else:
-                # If there was no minima set the B-Point to NaN
-                b_point = np.NaN
-                warnings.warn(f"Could not find a local minimum i the R-C interval at location {idx}! "
-                              f"B-Point was set to NaN.")
+            # Get the interval of the cleaned ICG-signal which matches the position of the straight line
+            signal_clean_interval = signal_clean[line_start:c_point]
 
-            # Add the found B-point to the b_points Dataframe
+            # Compute the distance between the straight line and the cleaned ICG-signal
+            distance = line_values['line_values'].values - signal_clean_interval.values
+
+            # Select the position with maximal distance as the B-Point and convert it to absolute position
+            b_point = distance.argmax() + line_start
+
             b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points
         return self
+
+    @staticmethod
+    def get_line_values(start_x: int, start_y: float, c_x: int, c_y: float):
+        """function which computes the values of a straight line between the C-Point and the Point 150 ms before
+        the C-Point
+
+        Args:
+            start_x:
+                int index of the Point 150 ms before the C-Point as an absolute index
+            start_y:
+                float value of the Point 150 ms before the C-Point
+            c_x:
+                int index of the C-Point
+            c_y:
+                float value of the C-Point
+
+        Returns:
+            pd.DataFrame with the values of the straight line for each index between the C-Point and the Point 150 ms
+            before the C-Point
+        """
+        # Compute the gradient of the straight line
+        m = (c_y - start_y) / (c_x - start_x)
+
+        # Get the indexes where we want to compute the values of the straight line
+        index = np.arange(0, (c_x - start_x), 1)
+        line_values = pd.DataFrame(index, columns=['line_values'])
+
+        # Compute the values of the straight line for each position in index
+        for x in index:
+            y = (m * x) + start_y
+            line_values['line_values'].loc[x] = y
+        return line_values
