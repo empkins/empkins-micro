@@ -97,7 +97,7 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                     selected_c = heartbeat_c_candidates[0]  # convert to int (instead of array)
                     r_c_distance = r_c_distance[0]
                     if r_c_distance < 0:
-                        warnings.warn("The C-point detected in heartbeat " + str(idx) + " occurs before R-peak")
+                        warnings.warn(f"The C-point detected in heartbeat {idx} occurs before R-peak")
 
                 elif len(heartbeat_c_candidates) > 1:
 
@@ -129,8 +129,7 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                     c_points.at[idx, "c_candidates"].append(c + heartbeat_start)
 
             if len(heartbeats_no_c) > 0:
-                warnings.warn("No C-point detected in " + str(len(heartbeats_no_c)) + " heartbeats (" + str(
-                    heartbeats_no_c) + ")")
+                warnings.warn(f"No C-point detected in {len(heartbeats_no_c)} heartbeats ({heartbeats_no_c})")
 
         self.points_ = c_points
         return self

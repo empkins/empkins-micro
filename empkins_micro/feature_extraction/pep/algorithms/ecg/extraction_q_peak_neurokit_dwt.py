@@ -46,8 +46,8 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
             q_peaks["q_peak"].loc[heartbeat_idx] = q
 
             if heartbeats["r_peak_sample"].loc[heartbeat_idx].item() < q:
-                warnings.warn("Detected Q-peak occurs after R-peak (physiologically wrong) in heartbeat " + str(
-                    heartbeat_idx) + ". Maybe double check?!")
+                warnings.warn(
+                    f"Detected Q-peak occurs after R-peak (wrong order) in heartbeat {heartbeat_idx}. Double check?!")
 
         self.points_ = q_peaks
         return self
