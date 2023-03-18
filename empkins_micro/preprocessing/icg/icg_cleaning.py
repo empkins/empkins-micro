@@ -28,7 +28,8 @@ def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int, filter_type: s
     elif filter_type is "elliptic":
         rp = 1.0
         rs = 80.0
-        sos = signal.ellip(N=2, rp=rp, rs=rs, Wn=[0.75, 40], btype="bandpass", output="sos", fs=sampling_rate_hz, analog=False)
+        sos = signal.ellip(N=2, rp=rp, rs=rs, Wn=[0.75, 40], btype="bandpass", output="sos", fs=sampling_rate_hz,
+                           analog=False)
         clean_signal = signal.sosfiltfilt(sos, raw_signal)
 
     elif filter_type is "savgol":  # Savitzky-Golay filter (for high frequency noise?!)
@@ -39,4 +40,3 @@ def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int, filter_type: s
 
     clean_signal = pd.Series(clean_signal, index=raw_signal.index, name="icg_der")
     return clean_signal
-
