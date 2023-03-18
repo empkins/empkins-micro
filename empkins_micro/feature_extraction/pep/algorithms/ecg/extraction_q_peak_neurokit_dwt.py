@@ -1,6 +1,7 @@
 import warnings
 
 import neurokit2 as nk
+import numpy as np
 import pandas as pd
 from tpcp import make_action_safe
 
@@ -26,7 +27,8 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
 
         Returns:
             saves resulting Q-peak locations (samples) in points_ attribute of super class (in the row of the heartbeat
-            to which the respective Q-peak corresponds), index is heartbeat id
+            to which the respective Q-peak corresponds), index is heartbeat id,
+            NaN when no Q-peak could be detected in that heartbeat
         """
 
         # result df
@@ -41,13 +43,19 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
         extracted_q_peaks = waves["ECG_Q_Peaks"]
 
         # find heartbeat to which Q-peak belongs and save Q-peak position in corresponding row
-        for q in extracted_q_peaks:
-            heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index
-            q_peaks["q_peak"].loc[heartbeat_idx] = q
+        for idx, q in enumerate(extracted_q_peaks):
 
-            if heartbeats["r_peak_sample"].loc[heartbeat_idx].item() < q:
-                warnings.warn(
-                    f"Detected Q-peak occurs after R-peak (wrong order) in heartbeat {heartbeat_idx}. Double check?!")
+            # for some heartbeats, no Q can be detected, will be NaN in resulting df
+            if np.isnan(q):
+                warnings.warn(f"FYI: No Q-peak found (most likely in heartbeat #{idx})!", UserWarning)
+            else:
+                heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index
+                q_peaks["q_peak"].loc[heartbeat_idx] = q
+
+                if heartbeats["r_peak_sample"].loc[heartbeat_idx].item() < q:
+                    warnings.warn(
+                        f"Detected Q-peak occurs after R (wrong order) in heartbeat {heartbeat_idx}. Double check?!",
+                        UserWarning)
 
         self.points_ = q_peaks
         return self
