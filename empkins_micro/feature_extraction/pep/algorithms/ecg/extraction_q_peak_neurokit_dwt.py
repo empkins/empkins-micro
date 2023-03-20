@@ -47,7 +47,7 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
 
             # for some heartbeats, no Q can be detected, will be NaN in resulting df
             if np.isnan(q):
-                warnings.warn(f"FYI: No Q-peak found (most likely in heartbeat #{idx})!", UserWarning)
+                warnings.warn(f"FYI: No Q-peak found (in heartbeat #{idx})!", UserWarning)
             else:
                 heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index
                 q_peaks["q_peak"].loc[heartbeat_idx] = q
