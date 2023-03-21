@@ -13,7 +13,7 @@ import pandas as pd
 from scipy.spatial.transform.rotation import Rotation
 
 #: The gravity vector in m/s^2 in the FSF
-from empkins_micro.utils.vector_math import normalize, find_orthogonal, row_wise_dot
+from empkins_micro.utils.vector_math import find_orthogonal, normalize, row_wise_dot
 
 GRAV_VEC = np.array([0.0, 0.0, 9.81])
 

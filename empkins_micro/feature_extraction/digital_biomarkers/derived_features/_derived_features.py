@@ -70,4 +70,3 @@ def std_weighted(data, weights):
     weights = weights[~indices]
     val = np.sqrt(np.cov(df.to_numpy(), aweights=weights))
     return val
-

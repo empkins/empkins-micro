@@ -1,9 +1,11 @@
-import numpy as np
 import json
+import os
 import re
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
-import os
+
 
 def _euclidean_distance(point1, point2):
     """
@@ -78,13 +80,8 @@ def _compute_features(df_of, config_path):
 
         first_row = df_of.iloc[0]
 
-        facew = abs(
-            first_row[config["face_width_left"]] - first_row[config["face_width_right"]]
-        )
-        faceh = abs(
-            first_row[config["face_height_left"]]
-            - first_row[config["face_height_right"]]
-        )
+        facew = abs(first_row[config["face_width_left"]] - first_row[config["face_width_right"]])
+        faceh = abs(first_row[config["face_height_left"]] - first_row[config["face_height_right"]])
 
         if facew == 0 or faceh == 0:
             return _empty_facial_tremor("face width or height = 0. Check landmark values")
@@ -102,9 +99,7 @@ def _compute_features(df_of, config_path):
         fac_corr_mat = np.corrcoef(fac_disp, rowvar=True)
 
         # extract relevant row from cov matrix
-        ref_lmk_index = [
-            i for i, lmk in enumerate(landmarks) if config["ref_lmk"] == lmk
-        ]
+        ref_lmk_index = [i for i, lmk in enumerate(landmarks) if config["ref_lmk"] == lmk]
 
         fac_corr = fac_corr_mat[ref_lmk_index][0]
         fac_area = config["ref_area"] / (facew * faceh)
@@ -114,9 +109,7 @@ def _compute_features(df_of, config_path):
         fac_features_dict = {}
         for i, landmark in enumerate(landmarks):
 
-            fac_features_dict["fac_tremor_median_{}_mean".format(landmark)] = [
-                fac_features_median[i]
-            ]
+            fac_features_dict["fac_tremor_median_{}_mean".format(landmark)] = [fac_features_median[i]]
 
         fac_features_dict["error"] = ["PASS"]
         data = pd.DataFrame.from_dict(fac_features_dict)
@@ -137,7 +130,7 @@ def _empty_facial_tremor(error_text):
         "fac_tremor_median_51_mean": [np.nan],
         "fac_tremor_median_66_mean": [np.nan],
         "fac_tremor_median_57_mean": [np.nan],
-        "error": [error_text]
+        "error": [error_text],
     }
     return pd.DataFrame.from_dict(data)
 
