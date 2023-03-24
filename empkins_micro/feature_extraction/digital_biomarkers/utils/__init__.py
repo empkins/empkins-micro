@@ -4,7 +4,7 @@ DBM_FEATURE_GROUPS: Sequence[str] = [
     "facial",
     "acoustic",
     "movement",
-    "acoustic",
+    "acoustic_seg",
     "audio_seg",
     "facial_tremor",
     "eyeblink_ear",

@@ -6,9 +6,8 @@ def _derived_fe_dict():
     feature_dict = {
         "facial": {
             "group_1": {
-                "raw_features": [f"fac_LMK{i:02}disp" for i in range(1, 68)]
-                + [f"fac_AU{i:02}int" for i in range(1, 27) if i not in [16]]
-                + ["fac_AU45int"]
+                "raw_features": [f"fac_LMK{i:02}disp" for i in range(0, 68)]
+                + [f"fac_AU{i:02}int" for i in [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 25, 26, 45]]
                 + [
                     f"fac_{em}int{intens}"
                     for em, intens in product(["hap", "sad", "sur", "fea", "ang", "dis", "con"], ["soft", "hard"])
@@ -107,7 +106,8 @@ def _derived_fe_dict():
         },
         "eyeblink_ear": {"group_1": {"raw_features": ["mov_blink_ear"], "derived_features": ["mean", "std"]}},
         "acoustic_seg": {
-            "group_1": {"raw_features": ["aco_jitter", "aco_shimmer", "aco_gne"], "derived_features": ["wmean", "wstd"]}
+            "group_1": {"raw_features": ["aco_jitter", "aco_shimmer", "aco_gne"],
+                        "derived_features": ["mean", "wmean", "std", "wstd"]}
         },
         "audio_seg": {
             "group_1": {
@@ -122,7 +122,7 @@ def _derived_fe_dict():
                     # voice prevalence
                     "aco_voicepct",
                 ],
-                "derived_features": ["wmean"],
+                "derived_features": ["mean", "wmean"],
             }
         },
         "facial_tremor": {
@@ -149,3 +149,99 @@ def get_fe_dict_structure() -> Dict[str, Dict[str, Dict[str, Sequence[str]]]]:
     fe_dict = _derived_fe_dict()
     info_dict = {x: len(fe_dict[x]) for x in fe_dict.keys()}
     return info_dict
+
+
+def _subgroup_dict():
+    subgroup_dict = {
+        "fac": {
+            "facial_landmarks": [f"LMK{i:02}disp" for i in range(0, 68)],
+            "action_units":
+                [f"AU{i:02}int" for i in [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 25, 26, 45]]
+                + [f"AU{i:02}pres" for i in [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 25, 26, 28, 45]],
+            "emotional_expressivity":
+                [f"{em}int{intens}" for em, intens in
+                    product(["hap", "sad", "sur", "fea", "ang", "dis", "con"], ["soft", "hard"])]
+                + [f"{em}pres" for em in ["hap", "sad", "sur", "fea", "ang", "dis", "con"]],
+            "overall_expressivity": [
+                "comintsoft",
+                "cominthard",
+                "comlowintsoft",
+                "comlowinthard",
+                "comuppintsoft",
+                "comuppinthard",
+                "posintsoft",
+                "posinthard",
+                "negintsoft",
+                "neginthard"
+            ],
+            "facial_asymmetry": [
+                "asymmaskmouth",
+                "asymmaskeye",
+                "asymmaskeyebrow",
+                "asymmaskcom"
+            ],
+            "pain_expressivity": [
+                "paiintsoft",
+                "paiinthard"
+            ],
+            "facial_tremor": [f"tremormedian{i}" for i in [5, 12, 8, 48, 54, 28, 51, 66, 57]]
+        },
+        "aco": {
+            "fundamental_frequency": ["ff"],
+            "formant_frequencies": [f"fm{i}" for i in range(1, 5)],
+            "audio_intensity": ["int"],
+            "hnr": ["hnr"],
+            "gne": ["gne"],
+            "jitter": ["jitter"],
+            "shimmer": ["shimmer"],
+            "pause": [
+                "pausetime",
+                "totaltime",
+                "numpauses",
+                "pausefrac"
+            ],
+            "mfcc": [f"mfcc{i}" for i in range(1, 13)],
+            "voice_prevalence": ["voicepct"],
+        },
+        "mov": {
+            "vocal_tremor": [
+                "freqtremfreq",
+                "freqtremindex",
+                "freqtrempindex",
+                "amptremfreq",
+                "amptremindex",
+                "amptrempindex"
+            ],
+            "head_movement": [
+                "headvel",
+                "hposepitch",
+                "hposeyaw",
+                "hposeroll",
+                "hposedist"
+            ],
+            "eye_blink": [
+                "eyeblink",
+                "eyeblinkdur",
+                "blinkear"
+            ],
+            "eye_gaze": [
+                "lefteyex",
+                "lefteyey",
+                "lefteyez",
+                "righteyex",
+                "righteyey",
+                "righteyez",
+                "leyedisp",
+                "reyedisp"
+            ]
+        }
+    }
+
+    return subgroup_dict
+
+
+def get_subgroup(group, feature):
+    subgroup_dict = _subgroup_dict()
+    for subgroup in subgroup_dict[group]:
+        if feature in subgroup_dict[group][subgroup]:
+            return subgroup

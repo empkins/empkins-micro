@@ -8,6 +8,7 @@ from empkins_micro.feature_extraction.digital_biomarkers.derived_features.pause_
 from empkins_micro.feature_extraction.digital_biomarkers.derived_features.utils import (
     get_derived_fe_dict,
     get_fe_dict_structure,
+    get_subgroup
 )
 from empkins_micro.feature_extraction.digital_biomarkers.movement.facial_tremor import calc_facial_tremor
 from empkins_micro.feature_extraction.digital_biomarkers.utils import DBM_FEATURE_GROUPS
@@ -44,10 +45,10 @@ class DerivedFeatureExtraction:
 
     def _calc_features(self, df, data, group, weights: Optional[np.array] = None):
         mean_weighted = lambda x: derived_features.mean_weighted(x, weights)
-        mean_weighted.__name__ = "mean"
+        mean_weighted.__name__ = "wmean"
 
         std_weighted = lambda x: derived_features.std_weighted(x, weights)
-        std_weighted.__name__ = "std"
+        std_weighted.__name__ = "wstd"
 
         fun_dict = {
             "mean": derived_features.mean,
@@ -88,7 +89,7 @@ class DerivedFeatureExtraction:
 
         for feature_group in DBM_FEATURE_GROUPS:
             # skip audio_seg and facial_tremor, they are calculated in the next step
-            if feature_group in ["audio_seg", "facial_tremor"]:
+            if feature_group in ["acoustic_seg", "audio_seg", "facial_tremor"]:
                 continue
             data = self._feature_data_dict.get(feature_group, None)
             df = (
@@ -96,6 +97,13 @@ class DerivedFeatureExtraction:
                 if data is not None
                 else self._empty_features(df, feature_group)
             )
+
+        acoustic_seg = self._feature_data_dict.get("acoustic_seg", None)
+        if acoustic_seg is not None:  # acoustic segmented data
+            weights = (acoustic_seg["end_time"] - acoustic_seg["start_time"]).to_numpy()
+            df = self._calc_features(df, acoustic_seg, "acoustic_seg", weights)
+        else:
+            df = self._empty_features(df, "acoustic_seg")
 
         audio_seg = self._feature_data_dict.get("audio_seg", None)
         if audio_seg is not None:
@@ -115,4 +123,27 @@ class DerivedFeatureExtraction:
         else:
             df = self._empty_features(df, "facial_tremor")
 
-        return df
+        # concatenate middle parts of feature names that consist of more than three parts
+        df.columns = [
+            '_'.join([c.split('_')[0], ''.join(c.split('_')[1:-1]), c.split('_')[-1]]) if len(
+                c.split('_')) > 3 else c
+            for c in list(df.columns)]
+
+        # create long formate dataframe
+        df_long = []
+        for col in list(df.columns):
+            tmp = [self._subject_id, self._condition, self._phase[0]]
+            col_split = list(col.split('_'))
+            subgroup = get_subgroup(col_split[0], col_split[1])
+            tmp.extend([col_split[0], subgroup, col_split[1], col_split[2], df.at[0, col]])
+            df_long.append(tmp)
+
+        df_long = pd.DataFrame(df_long,
+                               columns=["subject", "condition", "phase", "group", "subgroup", "feature", "metric",
+                                        "data"])
+
+        # in opendbm documentation facial tremor belongs to movement group but is labeled with "fac" for facial
+        # for correctness the label is changed to "mov"
+        df_long.loc[np.where(df_long["subgroup"] == "facial_tremor")[0], "group"] = "mov"
+
+        return df, df_long
