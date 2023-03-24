@@ -1,10 +1,7 @@
 import shutil
-import tarfile
 from pathlib import Path
 from typing import Optional
-
 import pandas as pd
-from empkins_io.datasets.d03.macro_prestudy.helper import build_opendbm_raw_data_path, build_opendbm_tarfile_path
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.glottal_noise import calc_gne, empty_gne
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import process_segment_pitch
@@ -55,44 +52,7 @@ class RawFeatureExtraction:
             self._df_pitch is not None or self._df_eyeblink is not None or self._diarization is not None
         )
 
-    def _get_data_path(self):
-        return self._base_path.joinpath(
-            "data_per_subject", f"{self._subject_id}", f"{self._condition}", "video", "processed", "output"
-        )
-
-    def _extract_opendbm_data(self):
-        tarfile_path = build_opendbm_tarfile_path(
-            base_path=self._base_path.joinpath("data_per_subject"),
-            subject_id=self._subject_id,
-            condition=self._condition,
-        )
-        data_path = self._get_data_path().parent
-
-        with tarfile.open(tarfile_path, "r:gz") as tar:
-            tar.extractall(path=data_path)
-
-    def _compress_opendbm_data(self):
-        tarfile_path_new = build_opendbm_tarfile_path(
-            base_path=self._base_path.joinpath("data_per_subject"),
-            subject_id=self._subject_id,
-            condition=self._condition,
-            new=True,
-        )
-
-        data_path = self._get_data_path()
-
-        with tarfile.open(tarfile_path_new, "w:gz") as tar:
-            tar.add(data_path, arcname=data_path.name)
-
-    def write_file(self, df, group, subgroup, data_path):
-        path = build_opendbm_raw_data_path(
-            subject_id=self._subject_id, condition=self._condition, group=group, subgroup=subgroup
-        )[0]
-        path = data_path.parent.joinpath(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(path, index=False)
-
-    def _acoustic_fe(self, data_path):
+    def _acoustic_fe(self):
         voice_seg, error_text = process_segment_pitch(self._df_pitch)
 
         if voice_seg is None:
@@ -104,15 +64,13 @@ class RawFeatureExtraction:
             df_shimmer = calc_shimmer(self._audio_path, voice_seg)
             df_gne = calc_gne(self._audio_path, voice_seg)
 
-        self.write_file(df_jitter, "acoustic", "jitter_recomputed", data_path)
-        self.write_file(df_shimmer, "acoustic", "shimmer_recomputed", data_path)
-        self.write_file(df_gne, "acoustic", "gne_recomputed", data_path)
+        return df_jitter, df_shimmer, df_gne
 
-    def _eyeblink_fe(self, data_path):
+    def _eyeblink_fe(self):
         df_eyeblink = binarize_eyeblink(self._df_eyeblink)
-        self.write_file(df_eyeblink, "movement", "eyeblink_binarized", data_path)
+        return df_eyeblink
 
-    def _segmented_fe(self, data_path):
+    def _segmented_fe(self):
         path_files = self._audio_path.parent.joinpath("audio_segments")
 
         df_dia_seg, error_text = segment_audio(
@@ -183,40 +141,38 @@ class RawFeatureExtraction:
             df_vfs = pd.DataFrame(vfs)
             df_vt = pd.DataFrame(vt)
 
-        self.write_file(df_pause_segment, "acoustic", "pause_segment_recomputed", data_path)
-        self.write_file(df_vfs, "acoustic", "voice_frame_score_recomputed", data_path)
-        self.write_file(df_vt, "movement", "voice_tremor_recomputed", data_path)
-
         shutil.rmtree(path_files)
 
+        return df_pause_segment, df_vfs, df_vt
+
     def extract_features(self):
-        data_path = self._get_data_path()
-
-        if data_path.exists():
-            shutil.rmtree(data_path)
-
-        if self._do_feature_extraction:
-            self._extract_opendbm_data()
 
         # jitter, shimmer, gne
         if self._df_pitch is not None:
-            self._acoustic_fe(data_path)
+            df_jitter, df_shimmer, df_gne = self._acoustic_fe()
         else:
             print("pitch dataframe (df_pitch) is not initialized")
 
         # eyeblink
         if self._df_eyeblink is not None:
-            self._eyeblink_fe(data_path)
+            df_eyeblink = self._eyeblink_fe()
         else:
             print("eyeblink dataframe is not initialized")
 
         # segmented audio features
         if self._diarization is not None:
-            self._segmented_fe(data_path)
+            df_pause_segment, df_vfs, df_vt = self._segmented_fe()
         else:
             print("speaker diarization is not initialized")
 
-        if self._do_feature_extraction:
-            self._compress_opendbm_data()
+        df_dict = {
+            "df_jitter": df_jitter,
+            "df_shimmer": df_shimmer,
+            "df_gne": df_gne,
+            "df_eyeblink": df_eyeblink,
+            "df_pause_segment": df_pause_segment,
+            "df_vfs": df_vfs,
+            "df_vt": df_vt,
+        }
 
-        shutil.rmtree(data_path)
+        return df_dict
