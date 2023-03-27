@@ -45,19 +45,20 @@ class BPointExtractionForouzanfar(BaseExtraction):
         # search for the A-Point within one third of the beat to beat interval prior to the A-Point
 
         # go trough each R-C interval independently and search for the local minima
-        for (idx_start, data_start), (idx_end, data_end) in self.pairwise(heartbeats.iterrows()):   # use shift alternatively
+        for idx, data in heartbeats.iterrows():   # use shift alternatively
             # check if r_peaks/c_points contain NaN. If this is the case, set the b_point to NaN and continue
             # with the next iteration
-            if check_c_points[idx_start]:
-                b_points['b_point'].iloc[idx_start] = np.NaN
-                warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx_start}! "
+            if check_c_points[idx]:
+                b_points['b_point'].iloc[idx] = np.NaN
+                warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx}! "
                               f"B-Point was set to NaN.")
                 continue
             else:
                 # get the actual and following R-Peak and the C-Point
-                r_peak_start = data_start['r_peak_sample']
-                r_peak_end = data_end['r_peak_sample']
-                c_point = c_points[idx_start]
+                r_peak_start = data['r_peak_sample']
+                r_peak_end = data.shift(1)['r_peak_sample']
+                # Step 1: Detect the main peak in the dZ/dt signal (C-Point)
+                c_point = c_points[idx]
 
             # Compute the beat to beat interval
             beat_to_beat = r_peak_end - r_peak_start
@@ -65,22 +66,21 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Compute the search interval for the A-Point
             search_interval = int(beat_to_beat/3)
 
-            # Get the position of the A-Point
+            # Step 2: Detect the local minimum (A-Point) within one third of the beat to beat interval
             a_point = self.get_a_point(signal_clean, search_interval, c_point) + (c_point - search_interval)
-            intermediate_steps['a_point'].iloc[idx_start] = a_point
+            intermediate_steps['a_point'].iloc[idx] = a_point
 
-            # Compute the amplitude difference between the detected A-Point and C-Point
+            # Step 3: Calculate the amplitude difference between the C-Point and the A-Point
             height = signal_clean[c_point] - signal_clean[a_point]
-            intermediate_steps['height'].iloc[idx_start] = height
+            intermediate_steps['height'].iloc[idx] = height
 
             # Get the signal_segment between the A-Point and the C-Point
-            signal_clean_segment = signal_clean[a_point:c_point]
+            signal_clean_segment = signal_clean[a_point:c_point+1]
 
-            # Get the most significant (highest height) monotonically increasing segment in the signal_clean_segment
-            monotonic_segments = self.get_monotonic_increasing_segments(signal_clean_segment)
+            # Step 4.1: Get all monotonic increasing segments between the A-Point and the C-Point
+            start_indexes, end_indexes = self.get_monotonic_increasing_segments(signal_clean_segment) + (c_point - search_interval)
 
-
-            #b_points['b_point'].iloc[idx_start] = b_point
+            #b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points
@@ -104,35 +104,38 @@ class BPointExtractionForouzanfar(BaseExtraction):
     @staticmethod
     def get_a_point(signal_clean: pd.DataFrame, search_interval: int, c_point: int):
         signal_interval = signal_clean[(c_point - search_interval):c_point]
-        signal_minima = argrelmin(signal_interval.values)
-        a_point_idx = np.argmin(signal_interval[signal_minima[0]])
+        signal_minima = argrelmin(signal_interval.values, mode='wrap')
+        print(signal_minima)
+        a_point_idx = np.argmin(signal_interval.iloc[signal_minima[0]])
         a_point = signal_minima[0][a_point_idx]
         return a_point
 
     @staticmethod
     def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame):
         signal_clean_segment.index = np.arange(0, len(signal_clean_segment))
-        change_in_monotony = signal_clean_segment.diff().fillna(0) < 0
+        change_in_monotony = signal_clean_segment.diff().fillna(0)
         change_in_monotony['borders'] = 0
 
         # if there is a change from True to False, which means that the gradient changes from negative to positive,
         # insert 'start_increase' in the borders column
-        change_in_monotony.loc[((change_in_monotony['icg'][1:] == False) &
-                               (change_in_monotony['icg'].shift(1) == True)), 'borders'] = 'start_increase'
+        change_in_monotony.loc[((change_in_monotony['icg'][1:] >= 0) &
+                               (change_in_monotony['icg'].shift(1) < 0)), 'borders'] = 'start_increase'
         # vice versa
-        change_in_monotony.loc[((change_in_monotony['icg'] == False) &
-                               (change_in_monotony['icg'].shift(-1) == True)), 'borders'] = 'end_increase'
+        change_in_monotony.loc[((change_in_monotony['icg'][1:] >= 0) &
+                               (change_in_monotony['icg'].shift(-1) < 0)), 'borders'] = 'end_increase'
 
         # Since the end_point of the signal_segment is the C-Point, we have to insert end_increase in the borders column
-        if not change_in_monotony['icg'][len(change_in_monotony) - 1]:
+        if change_in_monotony['icg'][len(change_in_monotony) - 1] >= 0:
             change_in_monotony['borders'].iloc[-1] = 'end_increase'
 
         # Since the first point of the segment is the A-Point (global minimum in this segment), we have to insert
         # start_increase in the borders column
-        if not change_in_monotony['icg'][1]:
+        if change_in_monotony['icg'][1] >= 0:
             change_in_monotony['borders'].iloc[0] = 'start_increase'
 
         start_indexes = change_in_monotony.index[change_in_monotony['borders'] == 'start_increase'].to_list()
         end_indexes = change_in_monotony.index[change_in_monotony['borders'] == 'end_increase'].to_list()
+        if signal_clean_segment.iloc[start_indexes] < (0.5 * signal_clean_segment.iloc[-1]):
+
         return start_indexes, end_indexes       # That are not absolute positions yet
 
