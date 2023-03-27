@@ -4,8 +4,8 @@ import pandas as pd
 
 def _empty_eyeblink(error_text):
     data = {
-        'mov_eyeblink': [np.nan],
-        'error': [error_text],
+        "mov_eyeblink": [np.nan],
+        "error": [error_text],
     }
     return pd.DataFrame.from_dict(data)
 
@@ -21,7 +21,7 @@ def binarize_eyeblink(data):
             bin_data[indices] = 1
 
             df_eyeblink = pd.DataFrame(bin_data.astype(int), columns=["mov_eyeblink"])
-            df_eyeblink['error'] = 'PASS'
+            df_eyeblink["error"] = "PASS"
 
             return df_eyeblink
 

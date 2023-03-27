@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, Union, Sequence
+from typing import Optional, Sequence, Union
 
 import pandas as pd
 from biopsykit.utils._types import path_t
@@ -7,7 +7,7 @@ from biopsykit.utils._types import path_t
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
 try:
-    from fer import Video, FER  # pylint:disable=import-outside-toplevel
+    from fer import FER, Video  # pylint:disable=import-outside-toplevel
 except ImportError as e:
     raise ImportError(
         "'fer' is not installed that is required for facial expression recognition. "

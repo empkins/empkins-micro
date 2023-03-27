@@ -1,15 +1,14 @@
 import datetime
 from copy import deepcopy
-from typing import Optional, Union, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
-
 from tqdm.auto import tqdm
 
 try:
-    from deepface import DeepFace
     import cv2
+    from deepface import DeepFace
 except ImportError as e:
     raise ImportError(
         "'deepface' is not installed that is required for emotion detection. "
@@ -17,6 +16,7 @@ except ImportError as e:
     ) from e
 
 from biopsykit.utils._types import path_t
+
 from empkins_micro.facial_expression.emotion._base import _BaseEmotionProcessor
 
 __all__ = ["DeepFaceEmotionProcessor"]

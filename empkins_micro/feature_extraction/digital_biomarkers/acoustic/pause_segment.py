@@ -1,13 +1,15 @@
+import collections
+import contextlib
 import os
+import sys
+import wave
+
 import numpy as np
 import pandas as pd
 import webrtcvad
 from pydub import AudioSegment
-import sys
-import contextlib
-import wave
-import collections
-from empkins_micro.feature_extraction.acoustic.helper import get_length
+
+from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
 
 class Frame(object):
@@ -45,14 +47,12 @@ def frame_generator(frame_duration_ms, audio, sample_rate):
     timestamp = 0.0
     duration = (float(n) / sample_rate) / 2.0
     while offset + n < len(audio):
-        yield Frame(audio[offset: offset + n], timestamp, duration)
+        yield Frame(audio[offset : offset + n], timestamp, duration)
         timestamp += duration
         offset += n
 
 
-def vad_get_segment_times(
-        sample_rate, frame_duration_ms, padding_duration_ms, vad, frames
-):
+def vad_get_segment_times(sample_rate, frame_duration_ms, padding_duration_ms, vad, frames):
     """Filters out non-voiced audio frames.
     BT: based on vad_collector, but returns start and end times for voiced segs
     Given a webrtcvad.Vad and a source of audio frames, yields only
@@ -121,7 +121,7 @@ def vad_get_segment_times(
             end_times.append(frame.timestamp + frame.duration)
     # sys.stdout.write('\n')
 
-    return (start_times, end_times)
+    return start_times, end_times
 
 
 def vad_collector(sample_rate, frame_duration_ms, padding_duration_ms, vad, frames):
@@ -214,9 +214,7 @@ def filter_seg_times(seg_starts, seg_ends, pad_at_start=0.5, len_to_keep=2.5):
             t_start = seg_starts[iseg] + pad_at_start
             sel_start.append(t_start)
             sel_end.append(t_start + len_to_keep)
-            sel_end_longer.append(
-                max(t_start + len_to_keep, seg_ends[iseg] - pad_at_start)
-            )
+            sel_end_longer.append(max(t_start + len_to_keep, seg_ends[iseg] - pad_at_start))
             not_found = False
 
     return sel_start, sel_end, sel_end_longer
@@ -248,12 +246,12 @@ def get_timing_cues(seg_starts_sec, seg_ends_sec):
     pause_frac = pause_time / total_time
 
     timing_dict = {
-        'aco_totaltime': total_time,
-        'aco_speakingtime': speaking_time,
-        'aco_numpauses': num_pauses,
-        'aco_pausetime': pause_time,
-        'aco_pausefrac': pause_frac,
-        'error': "PASS"
+        "aco_totaltime": total_time,
+        "aco_speakingtime": speaking_time,
+        "aco_numpauses": num_pauses,
+        "aco_pausetime": pause_time,
+        "aco_pausefrac": pause_frac,
+        "error": "PASS",
     }
     return timing_dict
 
@@ -284,9 +282,7 @@ def process_silence(audio_file):
         frames = list(frames)
 
         # longer pad time screens out little blips, but misses short silences
-        long_seg_starts, long_seg_ends = vad_get_segment_times(
-            sr, frame_dur_ms, long_pad_around_voice_ms, vad, frames
-        )
+        long_seg_starts, long_seg_ends = vad_get_segment_times(sr, frame_dur_ms, long_pad_around_voice_ms, vad, frames)
 
         # Logic to handle blank audio file
         if len(long_seg_starts) == 0 or len(long_seg_ends) == 0:
@@ -301,9 +297,7 @@ def process_silence(audio_file):
 
         seg_starts = []
         seg_ends = []
-        for k in range(
-                len(short_seg_starts)
-        ):  # logic to clean up some typical misfires
+        for k in range(len(short_seg_starts)):  # logic to clean up some typical misfires
             if (short_seg_starts[k] >= t_start) and (short_seg_starts[k] <= t_end):
                 seg_starts.append(short_seg_starts[k])
                 seg_ends.append(short_seg_ends[k])
@@ -322,12 +316,12 @@ def process_silence(audio_file):
 
 def empty_pause_segment(error_text):
     data = {
-        'aco_totaltime': [np.nan],
-        'aco_speakingtime': [np.nan],
-        'aco_numpauses': [np.nan],
-        'aco_pausetime': [np.nan],
-        'aco_pausefrac': [np.nan],
-        'error': [error_text]
+        "aco_totaltime": [np.nan],
+        "aco_speakingtime": [np.nan],
+        "aco_numpauses": [np.nan],
+        "aco_pausetime": [np.nan],
+        "aco_pausefrac": [np.nan],
+        "error": [error_text],
     }
     return pd.DataFrame.from_dict(data)
 
