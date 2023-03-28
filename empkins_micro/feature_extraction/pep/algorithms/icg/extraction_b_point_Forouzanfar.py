@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import neurokit2 as nk
-from scipy.signal import argrelmin
+from scipy.signal import argrelmin, argrelextrema
 from itertools import tee
 
 from tpcp import Algorithm, Parameter, make_action_safe
@@ -77,10 +77,32 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Get the signal_segment between the A-Point and the C-Point
             signal_clean_segment = signal_clean[a_point:c_point+1]
 
-            # Step 4.1: Get all monotonic increasing segments between the A-Point and the C-Point
-            start_indexes, end_indexes = self.get_monotonic_increasing_segments(signal_clean_segment) + (c_point - search_interval)
+            # Step 4.1: Get the most prominent monotonic increasing segment between the A-Point and the C-Point
+            start_sample, end_sample = self.get_monotonic_increasing_segments(signal_clean_segment, height) + \
+                                         (c_point - search_interval)
 
-            #b_points['b_point'].iloc[idx] = b_point
+            # Get the first third of the monotonic increasing segment
+            search_segment = signal_clean[start_sample:np.floor(end_sample/3)+1]
+            # 2nd derivative of the segment
+            monotonic_segment_2nd_der = pd.DataFrame(np.gradient(search_segment), columns=['2nd_der'])
+            # 3rd derivative of the segment
+            monotonic_segment_3rd_der = pd.DataFrame(np.gradient(monotonic_segment_2nd_der), columns=['3rd_der'])
+
+            # Compute the significant zero_crossings
+            significant_zero_crossings = self.get_zero_crossings(
+                monotonic_segment_3rd_der, monotonic_segment_2nd_der, height, sampling_rate_hz)
+
+            # Compute the significant local maximums of the 3rd derivative of the most prominent monotonic segment
+            significant_local_maximums = self.get_local_maximums(monotonic_segment_3rd_der, height, sampling_rate_hz)
+
+            # Label the last zero crossing/ local maximum as the B-Point
+            # If there are no zero crossings or local maximums use the first Point of the segment as B-Point
+            if len(significant_zero_crossings) == 0 & len(significant_local_maximums) == 0:
+                b_points['b_point'].iloc[idx] = start_sample
+            else:
+                significant_features = pd.concat([significant_zero_crossings, significant_local_maximums], axis=0)
+                b_point = significant_features.iloc[np.argmin(c_point - significant_features)]
+                b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points
@@ -96,46 +118,89 @@ class BPointExtractionForouzanfar(BaseExtraction):
         return c_points
 
     @staticmethod
-    def pairwise(iterable):
-        a, b = tee(iterable)
-        next(b, None)
-        return zip(a, b)
-
-    @staticmethod
     def get_a_point(signal_clean: pd.DataFrame, search_interval: int, c_point: int):
         signal_interval = signal_clean[(c_point - search_interval):c_point]
         signal_minima = argrelmin(signal_interval.values, mode='wrap')
-        print(signal_minima)
         a_point_idx = np.argmin(signal_interval.iloc[signal_minima[0]])
         a_point = signal_minima[0][a_point_idx]
         return a_point
 
     @staticmethod
-    def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame):
+    def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame, height: int):
         signal_clean_segment.index = np.arange(0, len(signal_clean_segment))
-        change_in_monotony = signal_clean_segment.diff().fillna(0)
-        change_in_monotony['borders'] = 0
+        monotony_df = signal_clean_segment.copy()
+        monotony_df['diff'] = monotony_df.diff().fillna(0)
+        monotony_df['borders'] = 0
 
-        # if there is a change from True to False, which means that the gradient changes from negative to positive,
-        # insert 'start_increase' in the borders column
-        change_in_monotony.loc[((change_in_monotony['icg'][1:] >= 0) &
-                               (change_in_monotony['icg'].shift(1) < 0)), 'borders'] = 'start_increase'
-        # vice versa
-        change_in_monotony.loc[((change_in_monotony['icg'][1:] >= 0) &
-                               (change_in_monotony['icg'].shift(-1) < 0)), 'borders'] = 'end_increase'
+        # start_increase if there is a change from negative to positive
+        monotony_df.loc[((monotony_df['icg'][1:] >= 0) &
+                               (monotony_df['icg'].shift(1) < 0)), 'borders'] = 'start_increase'
+        # end_increase if there is a change from positive to negative
+        monotony_df.loc[((monotony_df['icg'][1:] >= 0) &
+                               (monotony_df['icg'].shift(-1) < 0)), 'borders'] = 'end_increase'
 
         # Since the end_point of the signal_segment is the C-Point, we have to insert end_increase in the borders column
-        if change_in_monotony['icg'][len(change_in_monotony) - 1] >= 0:
-            change_in_monotony['borders'].iloc[-1] = 'end_increase'
+        if monotony_df['icg'][len(monotony_df) - 1] >= 0:
+            monotony_df['borders'].iloc[-1] = 'end_increase'
 
         # Since the first point of the segment is the A-Point (global minimum in this segment), we have to insert
         # start_increase in the borders column
-        if change_in_monotony['icg'][1] >= 0:
-            change_in_monotony['borders'].iloc[0] = 'start_increase'
+        if monotony_df['icg'][1] >= 0:
+            monotony_df['borders'].iloc[0] = 'start_increase'
 
-        start_indexes = change_in_monotony.index[change_in_monotony['borders'] == 'start_increase'].to_list()
-        end_indexes = change_in_monotony.index[change_in_monotony['borders'] == 'end_increase'].to_list()
-        if signal_clean_segment.iloc[start_indexes] < (0.5 * signal_clean_segment.iloc[-1]):
+        # drop all samples that are no possible start-/ end-points
+        monotony_df = monotony_df.drop(monotony_df[monotony_df['borders'] == 0].index)
+        monotony_df = monotony_df.reset_index()
 
-        return start_indexes, end_indexes       # That are not absolute positions yet
+        # Maybe we could only perform this, if we have more than one pair of points
+        # Drop start- and corresponding end-point, if their start value does not reach at least 1/2 of H
+        monotony_df = monotony_df.drop(
+            monotony_df[monotony_df['borders'] == 'start_increase' & (monotony_df['icg'] < 1)].index + 1, axis=0)           # How is the C-Point amplitude defined?
+        monotony_df = monotony_df.drop(
+            monotony_df[monotony_df['borders'] == 'start_increase' & (monotony_df['icg'] < 1)].index, axis=0)
+
+        # Drop start- and corresponding end-point, if their end values does not reach at least 2/3 of H
+        monotony_df = monotony_df.drop(
+            monotony_df[monotony_df['borders'] == 'end_increase' & (monotony_df['icg'] < 1)].index - 1, axis=0)
+        monotony_df = monotony_df.drop(
+            monotony_df[monotony_df['borders'] == 'end_increase' & (monotony_df['icg'] < 1)].index, axis=0)
+
+        # If their is more than one combination of points remaining, select the pair of points, that has the highest
+        # amplitude difference
+        start_sample = 0
+        end_sample = 0
+        monotony_df['icg'].diff().fillna(0)
+        if len(monotony_df) > 2:
+            idx = np.argmax(monotony_df['icg'].diff().fillna(0) > 0)
+            start_sample = monotony_df['index'].iloc[idx-1]
+            end_sample = monotony_df['index'].iloc[idx]
+        else:
+            start_sample = monotony_df.iloc[0]
+            end_sample = monotony_df.iloc[-1]
+
+        return start_sample, end_sample     # That are not absolute positions yet
+
+    @staticmethod
+    def get_zero_crossings(monotonic_segment_3rd_der: pd.DataFrame, monotonic_segment_2nd_der: pd.DataFrame, height: int, sampling_rate_hz: int):
+        zero_crossings = np.where(np.diff(np.signbit(monotonic_segment_3rd_der['3rd_der'])))[0]
+        zero_crossings = pd.DataFrame(zero_crossings, columns=['zero_crossings'])
+
+        # Discard zero_crossings with negative to positive sig change
+        significant_crossings = zero_crossings.drop(
+            zero_crossings[monotonic_segment_2nd_der[zero_crossings['zero_crossings']] < 0].index, axis=0)
+        # Discard zero crossings with slope higher than 10*H/f_s
+        significant_crossings = significant_crossings.drop(
+            significant_crossings[monotonic_segment_2nd_der[significant_crossings['zero_crossings']] >
+                           10 * height / sampling_rate_hz].index, inplace=True, axis=0)
+
+        return significant_crossings
+
+    @staticmethod
+    def get_local_maximums(monotonic_segment_3rd_der: pd.DataFrame, height: int, sampling_rate_hz: int):
+        local_maximums = argrelextrema(monotonic_segment_3rd_der['third_der'].values, np.greater_equal)[0]
+        local_maximums = pd.DataFrame(local_maximums, columns=['local_maximums'])
+        significant_maximums = local_maximums.drop(local_maximums[
+            monotonic_segment_3rd_der.iloc[
+                local_maximums['local_maximums']].values < 4 * height / sampling_rate_hz].index, axis=0)
+        return significant_maximums
 
