@@ -151,6 +151,7 @@ class SpeakerDiarization:
         data_new_segments = []
         # identify test_speaker segments
         speaker_list = [test_speaker, "SPEAKER_PANEL_INV"]
+        speaker_one_hot["SPEAKER_PANEL_INV"].iloc[[0, -1]] = 0
         for speaker in speaker_list:
             subject_diff = speaker_one_hot[speaker].diff()
             start = speaker_one_hot.loc[subject_diff == 1].index
