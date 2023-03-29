@@ -12,7 +12,7 @@ import warnings
 
 class BPointExtractionDrost(BaseExtraction):
     """algorithm to extract B-point based on the maximum distance of the dZ/dt curve and a straight line
-    from the C-Point to the Point on the dZ/dt curve 150 ms before the C-Point"""
+    fitted between the C-Point to the Point on the dZ/dt curve 150 ms before the C-Point"""
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
@@ -35,39 +35,39 @@ class BPointExtractionDrost(BaseExtraction):
             saves resulting B-point locations (samples) in points_ attribute of super class,
             index is C-point (/heartbeat) id
         """
-        # Create the b_point Dataframe with the index of the heartbeat_list
+        # Create the b_point Dataframe. Use the heartbeats id as index
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
 
-        # get the c_point locations and check if any entries contain NaN
+        # get the c_point locations from the c_points dataframe and search for entries containing NaN
         c_points = c_points['c_point']
         check_c_points = np.isnan(c_points.values.astype(float))
 
-        # go trough each R-C interval independently and search for the local minima
+        # iterate over each heartbeat
         for idx, data in heartbeats.iterrows():
-            # check if r_peaks/c_points contain NaN. If this is the case, set the b_point to NaN and continue
+            # check if c_points contain NaN. If this is the case, set the b_point to NaN and continue
             # with the next iteration
             if check_c_points[idx]:
                 b_points['b_point'].iloc[idx] = np.NaN
-                warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx}! "
-                              f"B-Point was set to NaN.")
+                warnings.warn(f"The C-Point contains NaN at position{idx}! The index of the B-Point was set to NaN.")
                 continue
             else:
-                # set the borders of the interval between the R-Peak and the C-Point
+                # Get the C-Point location at the current heartbeat id
                 c_point = c_points[idx]
 
-            # Get the start_position of the straight line 150 ms before the C-Point
+            # Calculate the start position of the straight line (150 ms before the C-Point)
             line_start = c_point - int((150/1000) * sampling_rate_hz)
 
-            # Compute the values of the straight line
+            # Calculate the values of the straight line
             line_values = self.get_line_values(line_start, signal_clean[line_start], c_point, signal_clean[c_point])
 
-            # Get the interval of the cleaned ICG-signal which matches the position of the straight line
+            # Get the interval of the cleaned ICG-signal in the range of the straight line
             signal_clean_interval = signal_clean[line_start:c_point]
 
-            # Compute the distance between the straight line and the cleaned ICG-signal
-            distance = line_values['line_values'].values - signal_clean_interval.values
+            # Calculate the distance between the straight line and the cleaned ICG-signal
+            distance = line_values['result'].values - signal_clean_interval.values
 
-            # Select the position with maximal distance as the B-Point and convert it to absolute position
+            # Calculate the location of the maximum distance and transform the index relative to the complete signal
+            # to obtain the B-Point location
             b_point = distance.argmax() + line_start
 
             b_points['b_point'].iloc[idx] = b_point
@@ -78,12 +78,12 @@ class BPointExtractionDrost(BaseExtraction):
 
     @staticmethod
     def get_line_values(start_x: int, start_y: float, c_x: int, c_y: float):
-        """function which computes the values of a straight line between the C-Point and the Point 150 ms before
+        """function which computes the values of a straight line fitted between the C-Point and the Point 150 ms before
         the C-Point
 
         Args:
             start_x:
-                int index of the Point 150 ms before the C-Point as an absolute index
+                int index of the Point 150 ms before the C-Point
             start_y:
                 float value of the Point 150 ms before the C-Point
             c_x:
@@ -92,18 +92,17 @@ class BPointExtractionDrost(BaseExtraction):
                 float value of the C-Point
 
         Returns:
-            pd.DataFrame with the values of the straight line for each index between the C-Point and the Point 150 ms
-            before the C-Point
+            pd.DataFrame containing the values of the straight line for each index between the C-Point and the Point
+            150 ms before the C-Point
         """
-        # Compute the gradient of the straight line
-        m = (c_y - start_y) / (c_x - start_x)
+        # Compute the slope of the straight line
+        slope = (c_y - start_y) / (c_x - start_x)
 
-        # Get the indexes where we want to compute the values of the straight line
+        # Get the sample positions where we want to calculate the values of the straight line
         index = np.arange(0, (c_x - start_x), 1)
-        line_values = pd.DataFrame(index, columns=['line_values'])
+        line_values = pd.DataFrame(index, columns=['index'])
 
         # Compute the values of the straight line for each position in index
-        for x in index:
-            y = (m * x) + start_y
-            line_values['line_values'].loc[x] = y
+        line_values['result'] = (line_values['index'] * slope) + start_y
+
         return line_values

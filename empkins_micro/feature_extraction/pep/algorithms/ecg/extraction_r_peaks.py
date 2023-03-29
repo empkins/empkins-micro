@@ -8,13 +8,11 @@ from empkins_micro.feature_extraction.pep.algorithms.base_extraction import Base
 
 
 class RPeakExtraction(BaseExtraction):
-    """algorithm to extract Q-wave onset based on the detection of the R-peak
-     and a subtraction of a fixed time interval"""
+    """algorithm to extract Q-wave onset based on the detection of the R-peak"""
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
-        """function which extracts R-peaks from given ECG cleaned signal to use it as PEP estimate
-        (Kortekaas, Krohova, Drost)
+        """function which extracts R-peaks from given ECG cleaned signal to use it as Q-wave onset estimate
 
         Args:
             signal_clean:
@@ -29,7 +27,7 @@ class RPeakExtraction(BaseExtraction):
             saves resulting R-peak locations (samples) in points_ attribute of super class, index is heartbeat id
         """
 
-        # get the r_peaks from the heartbeat Dataframe
+        # get the r_peaks from the heartbeats Dataframe
         r_peaks = heartbeats["r_peak_sample"]
 
         points = r_peaks

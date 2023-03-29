@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import neurokit2 as nk
 from scipy.signal import argrelmin
 
 from tpcp import Algorithm, Parameter, make_action_safe
@@ -34,14 +33,14 @@ class BPointExtractionDebski(BaseExtraction):
             saves resulting B-point locations (samples) in points_ attribute of super class,
             index is C-point (/heartbeat) id
         """
-        # Create the b_point Dataframe with the index of the heartbeat_list
+        # Create the b_point Dataframe. Use the heartbeats id as index
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
 
-        # get the r_peak locations from the heartbeat_list and check if any entries contain NaN
+        # get the r_peak locations from the heartbeats dataframe and search for entries containing NaN
         r_peaks = heartbeats['r_peak_sample']
         check_r_peaks = np.isnan(r_peaks.values)
 
-        # get the c_point locations and check if any entries contain NaN
+        # get the c_point locations from the c_points dataframe and search for entries containing NaN
         c_points = c_points['c_point']
         check_c_points = np.isnan(c_points.values.astype(float))
 
@@ -63,7 +62,7 @@ class BPointExtractionDebski(BaseExtraction):
                 end_r_c = c_points[idx]
 
             # Select the specific interval in the second derivative of the ICG-signal
-            icg_search_window = icg_2nd_der[start_r_c:end_r_c]
+            icg_search_window = icg_2nd_der[start_r_c:(end_r_c+1)]
 
             # Compute the local minima in this interval
             icg_min = argrelmin(icg_search_window)
@@ -77,12 +76,12 @@ class BPointExtractionDebski(BaseExtraction):
                 # Compute the absolute sample position of the local B-point
                 b_point = b_point + start_r_c
             else:
-                # If there was no minima set the B-Point to NaN
+                # If there is no minima set the B-Point to NaN
                 b_point = np.NaN
                 warnings.warn(f"Could not find a local minimum i the R-C interval at location {idx}! "
                               f"B-Point was set to NaN.")
 
-            # Add the found B-point to the b_points Dataframe
+            # Add the detected B-point to the b_points Dataframe
             b_points['b_point'].iloc[idx] = b_point
 
         points = b_points

@@ -79,7 +79,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
             signal_clean_segment = signal_clean.iloc[a_point:c_point+1]
 
             # Step 4.1: Get the most prominent monotonic increasing segment between the A-Point and the C-Point
-            start_sample, end_sample = self.get_monotonic_increasing_segments(signal_clean_segment, height) + a_point
+            start_sample, end_sample = self.get_monotonic_increasing_segments(signal_clean_segment, height, idx) + a_point
             #print(f"Monotonic increasing segments start_sample {start_sample}, end_sample {end_sample}, heartbeat_id {idx}.")
             # Get the first third of the monotonic increasing segment
             start = start_sample
@@ -94,11 +94,11 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Compute the significant zero_crossings
             significant_zero_crossings = self.get_zero_crossings(
                 monotonic_segment_3rd_der, monotonic_segment_2nd_der, height, sampling_rate_hz)
-            print(f"received significant_crossings: {significant_zero_crossings}")
+            #print(f"received significant_crossings: {significant_zero_crossings}")
 
             # Compute the significant local maximums of the 3rd derivative of the most prominent monotonic segment
             significant_local_maximums = self.get_local_maximums(monotonic_segment_3rd_der, height, sampling_rate_hz)
-            print(f"received significant_maximums: {significant_local_maximums}")
+            #print(f"received significant_maximums: {significant_local_maximums}")
 
             # Label the last zero crossing/ local maximum as the B-Point
             # If there are no zero crossings or local maximums use the first Point of the segment as B-Point
@@ -128,11 +128,13 @@ class BPointExtractionForouzanfar(BaseExtraction):
         return a_point
 
     @staticmethod
-    def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame, height: int):
+    def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame, height: int, iteration: int):
         signal_clean_segment.index = np.arange(0, len(signal_clean_segment))
         monotony_df = pd.DataFrame(signal_clean_segment, columns=['icg'])
         monotony_df['diff'] = monotony_df.diff().fillna(0)
         monotony_df['borders'] = 0
+        # define the height as the C-Point amplitude (height = actual amplitude of C-Point seems to be the better approach)
+        height = monotony_df['icg'].iloc[-1]
 
         # start_increase if there is a change from negative to positive
         monotony_df.loc[((monotony_df['diff'][1:] >= 0) &
@@ -175,7 +177,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
             start_sample = monotony_df['index'].iloc[idx-1]
             end_sample = monotony_df['index'].iloc[idx]
         elif len(monotony_df) == 0:
-            warnings.warn("Could not find a monotonic segment. This should never happen!")
+            warnings.warn(f"Could not find a monotonic segment. This should never happen!{iteration}")
         else:
             start_sample = monotony_df['index'].iloc[0]
             end_sample = monotony_df['index'].iloc[-1]
