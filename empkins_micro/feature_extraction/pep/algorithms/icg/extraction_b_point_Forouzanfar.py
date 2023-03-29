@@ -94,21 +94,17 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Compute the significant zero_crossings
             significant_zero_crossings = self.get_zero_crossings(
                 monotonic_segment_3rd_der, monotonic_segment_2nd_der, height, sampling_rate_hz)
+            print(f"received significant_crossings: {significant_zero_crossings}")
 
             # Compute the significant local maximums of the 3rd derivative of the most prominent monotonic segment
             significant_local_maximums = self.get_local_maximums(monotonic_segment_3rd_der, height, sampling_rate_hz)
+            print(f"received significant_maximums: {significant_local_maximums}")
 
             # Label the last zero crossing/ local maximum as the B-Point
             # If there are no zero crossings or local maximums use the first Point of the segment as B-Point
-            if isinstance(significant_zero_crossings, type(None)) & isinstance(significant_local_maximums, type(None)):
-                b_points['b_point'].iloc[idx] = start_sample
-            else:
-                significant_features = pd.concat([significant_zero_crossings, significant_local_maximums], axis=0)
-                if len(significant_features.index) == 0:
-                    b_points['b_point'].iloc[idx] = start_sample
-                else:
-                    b_point = significant_features.iloc[np.argmin(c_point - significant_features)]
-                    b_points['b_point'].iloc[idx] = b_point
+            significant_features = pd.concat([significant_zero_crossings, significant_local_maximums], axis=0) + start
+            b_point = significant_features.iloc[np.argmin(c_point - significant_features)][0]
+            b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points
@@ -187,27 +183,45 @@ class BPointExtractionForouzanfar(BaseExtraction):
 
     @staticmethod
     def get_zero_crossings(monotonic_segment_3rd_der: pd.DataFrame, monotonic_segment_2nd_der: pd.DataFrame, height: int, sampling_rate_hz: int):
+        constraint = 10 * height / sampling_rate_hz
+        #print(f"constraint zero_crossings: {constraint}")
         zero_crossings = np.where(np.diff(np.signbit(monotonic_segment_3rd_der['3rd_der'])))[0]
-        zero_crossings = pd.DataFrame(zero_crossings, columns=['zero_crossings'])
-        print(zero_crossings)
+        zero_crossings = pd.DataFrame(zero_crossings, columns=['sample_position'])
+        #print(zero_crossings)
+        #print(monotonic_segment_2nd_der.iloc[zero_crossings['zero_crossings']].values)
         # Discard zero_crossings with negative to positive sign change
         significant_crossings = zero_crossings.drop(
-            zero_crossings[monotonic_segment_2nd_der.iloc[zero_crossings['zero_crossings']].values < 0].index, axis=0)
+            zero_crossings[monotonic_segment_2nd_der.iloc[zero_crossings['sample_position']].values < 0].index, axis=0)
+        #print(significant_crossings)
+        #print(f"values significant_crossings: {monotonic_segment_2nd_der.iloc[significant_crossings['zero_crossings']].values}")
         # Discard zero crossings with slope higher than 10*H/f_s
         significant_crossings = significant_crossings.drop(
-            significant_crossings[monotonic_segment_2nd_der.iloc[significant_crossings['zero_crossings']].values >
-                                  (10 * height / sampling_rate_hz)].index, inplace=True, axis=0)
-        print(significant_crossings)
-        return significant_crossings
+            significant_crossings[monotonic_segment_2nd_der.iloc[significant_crossings['sample_position']].values >=
+                                  constraint].index, axis=0)
+        #print(significant_crossings)
+        if isinstance(zero_crossings, type(None)):
+            return pd.DataFrame([0], columns=['sample_position'])
+        elif len(zero_crossings) == 0:
+            return pd.DataFrame([0], columns=['sample_position'])
+        else:
+            return significant_crossings
 
     @staticmethod
     def get_local_maximums(monotonic_segment_3rd_der: pd.DataFrame, height: int, sampling_rate_hz: int):
+        constraint = 4 * height / sampling_rate_hz
+        #print(f"constraint local_maximums: {constraint}")
         local_maximums = argrelextrema(monotonic_segment_3rd_der['3rd_der'].values, np.greater_equal)[0]
-        local_maximums = pd.DataFrame(local_maximums, columns=['local_maximums'])
-        print(local_maximums)
+        local_maximums = pd.DataFrame(local_maximums, columns=['sample_position'])
+        #print(local_maximums)
+        #print(monotonic_segment_3rd_der.iloc[local_maximums['local_maximums']].values)
         significant_maximums = local_maximums.drop(local_maximums[
             monotonic_segment_3rd_der.iloc[
-                local_maximums['local_maximums']].values < (4 * height / sampling_rate_hz)].index, axis=0)
-        print(significant_maximums)
-        return significant_maximums
+                local_maximums['sample_position']].values < constraint].index, axis=0)
+
+        if isinstance(significant_maximums, type(None)):
+            return pd.DataFrame([0], columns=['sample_position'])
+        elif len(significant_maximums) == 0:
+            return pd.DataFrame([0], columns=['sample_position'])
+        else:
+            return significant_maximums
 
