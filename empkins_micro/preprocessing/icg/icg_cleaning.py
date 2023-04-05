@@ -18,7 +18,7 @@ def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int, filter_type: s
         sampling_rate_hz: sampling rate of ICG dZ/dt signal in hz
         filter_type: type of filter (butterworth band-pass, elliptic band-pass, Savitzky-Golay filter)
     Returns:
-        clean_signal: pd.DataFrame containing filtered signal
+        clean_signal: pd.Series containing filtered signal
     """
 
     if filter_type is "butterworth":
