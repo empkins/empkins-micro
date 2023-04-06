@@ -17,7 +17,7 @@ def clean_ecg(raw_signal: pd.Series, sampling_rate_hz: int, method: Optional[str
 
     # TODO: add other cleaning methods
 
-    if method is "neurokit":
+    if method == "neurokit":
         clean_signal = nk.ecg_clean(raw_signal, sampling_rate=sampling_rate_hz, method=method)
         clean_signal = pd.Series(clean_signal, index=raw_signal.index, name="ecg")
 
