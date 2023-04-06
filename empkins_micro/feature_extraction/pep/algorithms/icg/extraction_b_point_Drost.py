@@ -12,7 +12,7 @@ import warnings
 
 class BPointExtractionDrost(BaseExtraction):
     """algorithm to extract B-point based on the maximum distance of the dZ/dt curve and a straight line
-    fitted between the C-Point to the Point on the dZ/dt curve 150 ms before the C-Point"""
+    fitted between the C-Point and the Point on the dZ/dt curve 150 ms before the C-Point"""
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
@@ -48,7 +48,7 @@ class BPointExtractionDrost(BaseExtraction):
             # with the next iteration
             if check_c_points[idx]:
                 b_points['b_point'].iloc[idx] = np.NaN
-                warnings.warn(f"The C-Point contains NaN at position{idx}! The index of the B-Point was set to NaN.")
+                warnings.warn(f"The C-Point contains NaN at heartbeat {idx}! The index of the B-Point was set to NaN.")
                 continue
             else:
                 # Get the C-Point location at the current heartbeat id
@@ -70,7 +70,12 @@ class BPointExtractionDrost(BaseExtraction):
             # to obtain the B-Point location
             b_point = distance.argmax() + line_start
 
-            b_points['b_point'].iloc[idx] = b_point
+            if b_point < data['r_peak_sample']:
+                b_points['b_point'].iloc[idx] = np.NaN
+                warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
+                              f" The index of the B-Point was set to NaN.")
+            else:
+                b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points
@@ -102,7 +107,7 @@ class BPointExtractionDrost(BaseExtraction):
         index = np.arange(0, (c_x - start_x), 1)
         line_values = pd.DataFrame(index, columns=['index'])
 
-        # Compute the values of the straight line for each position in index
+        # Compute the values of the straight line for each index
         line_values['result'] = (line_values['index'] * slope) + start_y
 
         return line_values

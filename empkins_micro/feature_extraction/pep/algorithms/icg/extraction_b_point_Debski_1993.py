@@ -78,7 +78,7 @@ class BPointExtractionDebski(BaseExtraction):
             else:
                 # If there is no minima set the B-Point to NaN
                 b_point = np.NaN
-                warnings.warn(f"Could not find a local minimum i the R-C interval at location {idx}! "
+                warnings.warn(f"Could not find a local minimum i the R-C interval for heartbeat {idx}! "
                               f"B-Point was set to NaN.")
 
             # Add the detected B-point to the b_points Dataframe
