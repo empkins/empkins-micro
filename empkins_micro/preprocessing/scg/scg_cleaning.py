@@ -58,3 +58,4 @@ def scg_norm(xyz_acc_signals: pd.DataFrame) -> pd.Series:
     calculated_norm = norm(xyz_acc_signals, axis=1)
     signal_norm = pd.Series(calculated_norm, index=xyz_acc_signals.index, name="acc_norm")
     return signal_norm
+
