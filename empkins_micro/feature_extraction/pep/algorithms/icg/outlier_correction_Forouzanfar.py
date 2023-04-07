@@ -13,7 +13,7 @@ from empkins_micro.feature_extraction.pep.algorithms.base_extraction import Base
 
 import warnings
 
-class BPointExtractionForouzanfar(BaseExtraction):
+class OutlierCorrectionForouzanfar(BaseExtraction):
     """algorithm to correct outliers based on [Forouzanfar et al., 2018, Psychophysiology]"""
 
 
@@ -35,6 +35,24 @@ class BPointExtractionForouzanfar(BaseExtraction):
         """
         corrected_b_points = pd.DataFrame(index=b_points.index, columns=["b_point"])
 
+        # stationarize the B-Point time data
+        stationary_data = self.stationarize_data(b_points, c_points, sampling_rate_hz)
+
+        # detect the outliers
+        outliers = self.detect_outliers(stationary_data)
+        print(f"Detected {len(outliers)} outliers in correction cycle 1!")
+
+        # Perform the outlier correction until no more outliers are detected
+        counter = 2
+        while len(outliers) > 0:
+            corrected_b_points = self.correct_outliers(b_points, c_points, stationary_data, outliers,
+                                                       stationary_data['baseline'])
+            stationary_data = self.stationarize_data(corrected_b_points, c_points, sampling_rate_hz)
+            outliers = self.detect_outliers(stationary_data)
+            print(f"Detected {len(outliers)} outliers in correction cycle {counter}!")
+            counter += 1
+
+        print(f"No more outliers got detected!")
         self.points_ = corrected_b_points
         return self
 
@@ -53,19 +71,19 @@ class BPointExtractionForouzanfar(BaseExtraction):
         return statio_data
 
     @staticmethod
-    def detect_outliers(stationarized_data: pd.DataFrame) -> pd.DataFrame:
-        median = np.median(stationarized_data['statio_data'])
-        median_abs_dev = median_abs_deviation(stationarized_data['statio_data'], axis=0, nan_policy='propagate')
-        outliers = pd.DataFrame(index=stationarized_data.index, columns=['outliers'])
+    def detect_outliers(stationary_data: pd.DataFrame) -> pd.DataFrame:
+        median = np.median(stationary_data['statio_data'])
+        median_abs_dev = median_abs_deviation(stationary_data['statio_data'], axis=0, nan_policy='propagate')
+        outliers = pd.DataFrame(index=stationary_data.index, columns=['outliers'])
         outliers['outliers'] = False
-        outliers.loc[(stationarized_data['statio_data'] - median) > (3 * median_abs_dev), 'outliers'] = True
-        return outliers[outliers['outliers'] == True].index.to_frame()
+        outliers.loc[(stationary_data['statio_data'] - median) > (3 * median_abs_dev), 'outliers'] = True
+        return outliers[outliers['outliers'] == True]
 
     @staticmethod
-    def correct_outliers(b_points_uncorrected: pd.DataFrame, c_points: pd.DataFrame, statio_data: pd.DataFrame, outliers: pd.DataFrame, baseline: pd.DataFrame) ->pd.DataFrame:
-        baseline = statio_data['baseline']
+    def correct_outliers(b_points_uncorrected: pd.DataFrame, c_points: pd.DataFrame, statio_data: pd.DataFrame,
+                         outliers: pd.DataFrame, baseline: pd.DataFrame) ->pd.DataFrame:
         data = statio_data['statio_data'].to_frame()
-        data.loc[outliers, 'statio_data'] = np.NaN
+        data.loc[outliers.index, 'statio_data'] = np.NaN
         input_endog = data['statio_data'].astype(float).interpolate()
         # Select order of the froward model
         sel = ar_select_order(input_endog, 30, ic='aic')
@@ -82,7 +100,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
         b_arima_mod = ARIMA(endog=reversed_input, order=(b_order, 0, 0))
         b_arima_res = b_arima_mod.fit(method='burg')
         # predict the outlier values
-        for idx in outliers:
+        for idx in outliers.index:
             forward_prediction = arima_res.predict(idx, idx)
             backward_prediction = b_arima_res.predict(len(reversed_input) - idx, len(reversed_input) - idx)
             prediction = np.average([forward_prediction, backward_prediction])
