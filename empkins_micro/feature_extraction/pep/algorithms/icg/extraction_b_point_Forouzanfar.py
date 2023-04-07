@@ -16,21 +16,21 @@ class BPointExtractionForouzanfar(BaseExtraction):
     """algorithm to extract B-point based on [Forouzanfar et al., 2018, Psychophysiology]"""
 
     # input parameters
-    outlier_correction: Parameter[bool]
+    correct_outliers: Parameter[bool]
 
     def __init__(
             self,
-            outlier_correction: Optional[bool] = False
+            correct_outliers: Optional[bool] = False
     ):
         """initialize new BPointExtractionForouzanfar algorithm instance
 
         Parameters
         ----------
-        outlier_correction : bool
-            Indicates whether to perform outlier correction (True)
+        correct_outliers : bool
+            Indicates whether to perform outlier correction (True) or not (False)
         """
 
-        self.outlier_correction = outlier_correction
+        self.correct_outliers = correct_outliers
 
     @make_action_safe
     def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
@@ -80,7 +80,6 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Compute the beat to beat interval
             beat_to_beat = c_points['c_point'].iloc[idx+1] - c_points['c_point'].iloc[idx]
 
-
             # Compute the search interval for the A-Point
             search_interval = int(beat_to_beat/3)
 
@@ -90,7 +89,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Step 3: Calculate the amplitude difference between the C-Point and the A-Point
             height = signal_clean.iloc[c_point] - signal_clean.iloc[a_point]
 
-            # Get the signal_segment between the A-Point and the C-Point
+            # Select the signal_segment between the A-Point and the C-Point
             signal_clean_segment = signal_clean.iloc[a_point:c_point+1]
 
             # Step 4.1: Get the most prominent monotonic increasing segment between the A-Point and the C-Point
@@ -123,11 +122,8 @@ class BPointExtractionForouzanfar(BaseExtraction):
             b_point = significant_features.iloc[np.argmin(c_point - significant_features)][0]
             b_points['b_point'].iloc[idx] = b_point
 
-        if self.outlier_correction:
-            self.outlier_correction(b_points)
-        else:
-            self.points_ = b_points
-            return self
+        self.points_ = b_points
+        return self
 
     @staticmethod
     def get_c_points(signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
@@ -152,7 +148,8 @@ class BPointExtractionForouzanfar(BaseExtraction):
         monotony_df = pd.DataFrame(signal_clean_segment, columns=['icg'])
         monotony_df['diff'] = monotony_df.diff().fillna(0)
         monotony_df['borders'] = 0
-        # define the height as the C-Point amplitude (height = actual amplitude of C-Point seems to be the better approach)
+
+        # define the height as the C-Point amplitude
         height = monotony_df['icg'].iloc[-1]
 
         # start_increase if there is a change from negative to positive

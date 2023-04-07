@@ -3,17 +3,15 @@ import numpy as np
 
 from scipy.signal import butter, filtfilt
 from scipy.stats import median_abs_deviation
-
-from statsmodels.tsa.ar_model import ar_select_order
-from statsmodels.tsa.arima.model import ARIMA
+from scipy.interpolate import CubicSpline
 
 from tpcp import Algorithm, Parameter, make_action_safe
 
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
 
 
-class OutlierCorrectionForouzanfar(BaseExtraction):
-    """algorithm to correct outliers based on [Forouzanfar et al., 2018, Psychophysiology]"""
+class OutlierCorrectionInterpolation(BaseExtraction):
+    """algorithm to correct outliers based on Linear Interpolation"""
 
 
     @make_action_safe
@@ -44,7 +42,7 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         # Perform the outlier correction until no more outliers are detected
         counter = 2
         while len(outliers) > 0:
-            corrected_b_points = self.correct_outliers(b_points, c_points, stationary_data, outliers,
+            corrected_b_points = self.correct_linear(b_points, c_points, stationary_data, outliers,
                                                        stationary_data['baseline'])
             stationary_data = self.stationarize_data(corrected_b_points, c_points, sampling_rate_hz)
             outliers = self.detect_outliers(stationary_data)
@@ -52,6 +50,7 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
             counter += 1
 
         print(f"No more outliers got detected!")
+
         self.points_ = corrected_b_points
         return self
 
@@ -79,32 +78,18 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         return outliers[outliers['outliers'] == True]
 
     @staticmethod
-    def correct_outliers(b_points_uncorrected: pd.DataFrame, c_points: pd.DataFrame, statio_data: pd.DataFrame,
-                         outliers: pd.DataFrame, baseline: pd.DataFrame) ->pd.DataFrame:
+    def correct_linear(b_points_uncorrected: pd.DataFrame, c_points: pd.DataFrame, statio_data: pd.DataFrame,
+                       outliers: pd.DataFrame, baseline: pd.DataFrame) ->pd.DataFrame:
         data = statio_data['statio_data'].to_frame()
+        # insert NaN at the heartbeat id of the outliers
         data.loc[outliers.index, 'statio_data'] = np.NaN
-        input_endog = data['statio_data'].astype(float).interpolate()
-        # Select order of the froward model
-        sel = ar_select_order(input_endog, 30, ic='aic')
-        order = sel.ar_lags[-1]
-        # fit the forward model
-        arima_mod = ARIMA(endog=input_endog, order=(order, 0, 0))
-        arima_res = arima_mod.fit(method='burg')
-        # reverse the input data to get the backward model
-        reversed_input = input_endog[::-1]
-        # Select order of the backward model
-        b_sel = ar_select_order(reversed_input, 30, ic='aic')
-        b_order = b_sel.ar_lags[-1]
-        # Fit the backward model
-        b_arima_mod = ARIMA(endog=reversed_input, order=(b_order, 0, 0))
-        b_arima_res = b_arima_mod.fit(method='burg')
-        # predict the outlier values
-        for idx in outliers.index:
-            forward_prediction = arima_res.predict(idx, idx)
-            backward_prediction = b_arima_res.predict(len(reversed_input) - idx, len(reversed_input) - idx)
-            prediction = np.average([forward_prediction, backward_prediction])
-            data.loc[idx, 'statio_data'] = prediction
-        result = b_points_uncorrected.copy()
-        result.loc[data.index, 'b_point'] = (
-                (c_points.c_point[c_points.index[data.index]] - (data['statio_data'] + baseline) * 1000)).astype(int)
-        return result
+        # interpolate the outlier positions using Linear_Interpolation
+        data_interpol = data['statio_data'].astype(float).interpolate()
+        print(data_interpol)
+
+        corrected_b_points = b_points_uncorrected.copy()
+        # Add the baseline back to the interpolated values
+        corrected_b_points.loc[data.index, 'b_point'] = (
+                (c_points.c_point[c_points.index[data.index]] - (data_interpol + baseline) * 1000)).astype(int)
+        return corrected_b_points
+

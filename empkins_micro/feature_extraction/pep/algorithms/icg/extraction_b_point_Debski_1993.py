@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from scipy.signal import argrelmin
+from typing import Optional
 
-from tpcp import Algorithm, Parameter, make_action_safe
+from tpcp import Parameter, make_action_safe
 
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
 
@@ -12,8 +13,26 @@ import warnings
 class BPointExtractionDebski(BaseExtraction):
     """algorithm to extract B-point based on the reversal (local minimum) of dZ^^2/dt^^2 before the C point"""
 
+    # input parameters
+    correct_outliers: Parameter[bool]
+
+    def __init__(
+            self,
+            correct_outliers: Optional[bool] = False
+    ):
+        """initialize new BPointExtractionDebski algorithm instance
+
+        Parameters
+        ----------
+        correct_outliers : bool
+            Indicates whether to perform outlier correction (True) or not (False)
+        """
+
+        self.correct_outliers = correct_outliers
+
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame,
+                sampling_rate_hz: int):
         """function which extracts B-points from given ICG cleaned signal
 
         Args:
@@ -62,7 +81,7 @@ class BPointExtractionDebski(BaseExtraction):
                 end_r_c = c_points[idx]
 
             # Select the specific interval in the second derivative of the ICG-signal
-            icg_search_window = icg_2nd_der[start_r_c:(end_r_c+1)]
+            icg_search_window = icg_2nd_der[start_r_c:(end_r_c + 1)]
 
             # Compute the local minima in this interval
             icg_min = argrelmin(icg_search_window)
@@ -82,7 +101,15 @@ class BPointExtractionDebski(BaseExtraction):
                               f"B-Point was set to NaN.")
 
             # Add the detected B-point to the b_points Dataframe
-            b_points['b_point'].iloc[idx] = b_point
+            if not self.correct_outliers:
+                if b_point < data['r_peak_sample']:
+                    b_points['b_point'].iloc[idx] = np.NaN
+                    warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
+                                  f" The index of the B-Point was set to NaN.")
+                else:
+                    b_points['b_point'].iloc[idx] = b_point
+            else:
+                b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points

@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
-import neurokit2 as nk
-from scipy.signal import argrelmin
+from typing import Optional
 
-from tpcp import Algorithm, Parameter, make_action_safe
+from tpcp import Parameter, make_action_safe
 
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
 
@@ -14,8 +13,26 @@ class BPointExtractionDrost(BaseExtraction):
     """algorithm to extract B-point based on the maximum distance of the dZ/dt curve and a straight line
     fitted between the C-Point and the Point on the dZ/dt curve 150 ms before the C-Point"""
 
+    # input parameters
+    correct_outliers: Parameter[bool]
+
+    def __init__(
+            self,
+            correct_outliers: Optional[bool] = False
+    ):
+        """initialize new BPointExtractionDrost algorithm instance
+
+        Parameters
+        ----------
+        correct_outliers : bool
+            Indicates whether to perform outlier correction (True) or not (False)
+        """
+
+        self.correct_outliers = correct_outliers
+
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame,
+                sampling_rate_hz: int):
         """function which extracts B-points from given ICG cleaned signal
 
         Args:
@@ -55,7 +72,7 @@ class BPointExtractionDrost(BaseExtraction):
                 c_point = c_points[idx]
 
             # Calculate the start position of the straight line (150 ms before the C-Point)
-            line_start = c_point - int((150/1000) * sampling_rate_hz)
+            line_start = c_point - int((150 / 1000) * sampling_rate_hz)
 
             # Calculate the values of the straight line
             line_values = self.get_line_values(line_start, signal_clean[line_start], c_point, signal_clean[c_point])
@@ -70,10 +87,13 @@ class BPointExtractionDrost(BaseExtraction):
             # to obtain the B-Point location
             b_point = distance.argmax() + line_start
 
-            if b_point < data['r_peak_sample']:
-                b_points['b_point'].iloc[idx] = np.NaN
-                warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
-                              f" The index of the B-Point was set to NaN.")
+            if not self.correct_outliers:
+                if b_point < data['r_peak_sample']:
+                    b_points['b_point'].iloc[idx] = np.NaN
+                    warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
+                                  f" The index of the B-Point was set to NaN.")
+                else:
+                    b_points['b_point'].iloc[idx] = b_point
             else:
                 b_points['b_point'].iloc[idx] = b_point
 
