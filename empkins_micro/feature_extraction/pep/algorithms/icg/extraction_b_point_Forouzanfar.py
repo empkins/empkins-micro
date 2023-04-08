@@ -33,7 +33,8 @@ class BPointExtractionForouzanfar(BaseExtraction):
         self.correct_outliers = correct_outliers
 
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, c_points: pd.DataFrame,
+                sampling_rate_hz: int):
         """function which extracts B-points from given ICG cleaned signal
 
         Args:
@@ -42,6 +43,10 @@ class BPointExtractionForouzanfar(BaseExtraction):
             heartbeats:
                 pd.DataFrame containing one row per segmented heartbeat, each row contains start, end, and R-peak
                 location (in samples from beginning of signal) of that heartbeat, index functions as id of heartbeat
+            c_points:
+                pd.DataFrame containing one row per segmented C-point, each row contains location
+                (in samples from beginning of signal) of that C-point or NaN if the location of that C-point
+                is not correct
             sampling_rate_hz:
                 sampling rate of ECG signal in hz
 
@@ -52,48 +57,42 @@ class BPointExtractionForouzanfar(BaseExtraction):
         # Create the B-Point/A-Point Dataframes with the index of the heartbeat_list
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
 
-        # get the c_point locations and check if entries contain NaN
-        c_points = self.get_c_points(signal_clean, heartbeats, sampling_rate_hz)
+        # check wether the c_points contain NaN
         check_c_points = np.isnan(c_points.values.astype(float))
 
-        # Calculate the second and third derivative of the signal
+        # Calculate the second- and third-derivative of the ICG-signal
         second_der = np.gradient(signal_clean)
         third_der = np.gradient(second_der)
 
-        # go trough each R-C interval independently and search for the local minima
-        for idx, data in heartbeats[:-1].iterrows():   # use shift alternatively
-            # check if r_peaks/c_points contain NaN. If this is the case, set the b_point to NaN and continue
-            # with the next iteration
-            if check_c_points[idx] | check_c_points[idx+1]:
+        for idx, data in heartbeats[:-1].iterrows():
+            # check if c_points contain NaN. If this is the case, set the b_point to NaN
+            if check_c_points[idx] | check_c_points[idx + 1]:
                 b_points['b_point'].iloc[idx] = np.NaN
                 warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx}! "
                               f"B-Point was set to NaN.")
                 continue
             else:
-                # get the actual and following R-Peak and the C-Point
-                r_peak_start = heartbeats['r_peak_sample'].iloc[idx]
-                r_peak_end = heartbeats['r_peak_sample'].iloc[idx+1]
-
                 # Detect the main peak in the dZ/dt signal (C-Point)
                 c_point = c_points['c_point'][idx]
 
             # Compute the beat to beat interval
-            beat_to_beat = c_points['c_point'].iloc[idx+1] - c_points['c_point'].iloc[idx]
+            beat_to_beat = c_points['c_point'].iloc[idx + 1] - c_points['c_point'].iloc[idx]
 
             # Compute the search interval for the A-Point
-            search_interval = int(beat_to_beat/3)
+            search_interval = int(beat_to_beat / 3)
 
-            # Step 2: Detect the local minimum (A-Point) within one third of the beat to beat interval
+            # Detect the local minimum (A-Point) within one third of the beat to beat interval prior to the C-Point
             a_point = self.get_a_point(signal_clean, search_interval, c_point) + (c_point - search_interval)
 
-            # Step 3: Calculate the amplitude difference between the C-Point and the A-Point
-            height = signal_clean.iloc[c_point] - signal_clean.iloc[a_point]
+            # Calculate the amplitude difference between the C-Point and the A-Point
+            height = signal_clean.iloc[c_point]
 
             # Select the signal_segment between the A-Point and the C-Point
-            signal_clean_segment = signal_clean.iloc[a_point:c_point+1]
+            signal_clean_segment = signal_clean.iloc[a_point:c_point + 1]
 
             # Step 4.1: Get the most prominent monotonic increasing segment between the A-Point and the C-Point
-            start_sample, end_sample = self.get_monotonic_increasing_segments(signal_clean_segment, height, idx) + a_point
+            start_sample, end_sample = self.get_monotonic_increasing_segments_2nd_der(
+                signal_clean_segment, second_der[a_point:c_point + 1], height) + a_point
             if (start_sample == a_point) & (end_sample == a_point):
                 warnings.warn(f"Could not find a monotonic increasing segment for heartbeat {idx}! "
                               f"The B-Point was set to NaN")
@@ -126,15 +125,6 @@ class BPointExtractionForouzanfar(BaseExtraction):
         return self
 
     @staticmethod
-    def get_c_points(signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
-
-        c_point_extractor = CPointExtraction_ScipyFindPeaks(window_c_correction=3, save_candidates=False)
-        c_point_extractor.extract(signal_clean=signal_clean, heartbeats=heartbeats, sampling_rate_hz=sampling_rate_hz)
-        c_points = c_point_extractor.points_
-
-        return c_points
-
-    @staticmethod
     def get_a_point(signal_clean: pd.DataFrame, search_interval: int, c_point: int):
         signal_interval = signal_clean.iloc[(c_point - search_interval):c_point]
         signal_minima = argrelmin(signal_interval.values, mode='wrap')
@@ -143,62 +133,59 @@ class BPointExtractionForouzanfar(BaseExtraction):
         return a_point
 
     @staticmethod
-    def get_monotonic_increasing_segments(signal_clean_segment: pd.DataFrame, height: int, iteration: int):
+    def get_monotonic_increasing_segments_2nd_der(signal_clean_segment: pd.DataFrame, second_der_segment: pd.DataFrame,
+                                                  height: int):
         signal_clean_segment.index = np.arange(0, len(signal_clean_segment))
         monotony_df = pd.DataFrame(signal_clean_segment, columns=['icg'])
-        monotony_df['diff'] = monotony_df.diff().fillna(0)
+        monotony_df['2nd_der'] = second_der_segment
         monotony_df['borders'] = 0
 
-        # define the height as the C-Point amplitude
-        height = monotony_df['icg'].iloc[-1]
+        # C-Point is a possible end of the monotonic segment
+        monotony_df['borders'].iat[-1] = 'end_increase'
+        # A-Point is a possible start of the monotonic segment
+        monotony_df['borders'].iat[0] = 'start_increase'
 
-        # start_increase if there is a change from negative to positive
-        monotony_df.loc[((monotony_df['diff'][1:] >= 0) &
-                               (monotony_df['diff'].shift(1) < 0)), 'borders'] = 'start_increase'
-        # end_increase if there is a change from positive to negative
-        monotony_df.loc[((monotony_df['diff'][1:] >= 0) &
-                               (monotony_df['diff'].shift(-1) < 0)), 'borders'] = 'end_increase'
-
-        # Since the end_point of the signal_segment is the C-Point, we have to insert end_increase in the borders column
-        if monotony_df['diff'][len(monotony_df) - 1] >= 0:
-            monotony_df['borders'].iat[-1] = 'end_increase'
-
-        # Since the first point of the segment is the A-Point (global minimum in this segment), we have to insert
-        # start_increase in the borders column
-        if monotony_df['diff'][1] >= 0:
-            monotony_df['borders'].iat[0] = 'start_increase'
+        # start_increase if the sign of the second derivative changes from negative to positive
+        monotony_df.loc[((monotony_df['2nd_der'][1:] < 0) &
+                         (monotony_df['2nd_der'].shift(-1) >= 0)), 'borders'] = 'start_increase'
+        # end_increase if the sign of the second derivative changes from positive to negative
+        monotony_df.loc[((monotony_df['2nd_der'][1:] >= 0) &
+                         (monotony_df['2nd_der'].shift(-1) < 0)), 'borders'] = 'end_increase'
 
         # drop all samples that are no possible start-/ end-points
         monotony_df = monotony_df.drop(monotony_df[monotony_df['borders'] == 0].index)
         monotony_df = monotony_df.reset_index()
-        if len(monotony_df) > 2:
-            # Drop start- and corresponding end-point, if their start value does not reach at least 1/2 of H
-            monotony_df = monotony_df.drop(
-                monotony_df[(monotony_df['borders'] == 'start_increase') & (monotony_df['icg'] > int(height/2))].index + 1)           # How is the C-Point amplitude defined?
-            monotony_df = monotony_df.drop(
-                monotony_df[(monotony_df['borders'] == 'start_increase') & (monotony_df['icg'] > int(height/2))].index)
 
-            # Drop start- and corresponding end-point, if their end values does not reach at least 2/3 of H
-            monotony_df = monotony_df.drop(
-                monotony_df[(monotony_df['borders'] == 'end_increase') & (monotony_df['icg'] < int(2*height/3))].index - 1)
-            monotony_df = monotony_df.drop(
-                monotony_df[(monotony_df['borders'] == 'end_increase') & (monotony_df['icg'] < int(2*height/3))].index)
+        # Drop start- and corresponding end-point, if their start value does not reach at least 1/2 of H
+        monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'start_increase') &
+                                                   (monotony_df['icg'] > int(height / 2))].index + 1, axis=0)
 
-        # Select the points with highest amplitude difference
+        monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'start_increase') &
+                                                   (monotony_df['icg'] > int(height / 2))].index, axis=0)
+
+        # Drop start- and corresponding end-point, if their end values does not reach at least 2/3 of H
+        monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'end_increase') &
+                                                   (monotony_df['icg'] < int(2 * height / 3))].index - 1, axis=0)
+
+        monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'end_increase') &
+                                                   (monotony_df['icg'] < int(2 * height / 3))].index, axis=0)
+
+        # Select the monotonic segment with the highest amplitude difference
         start_sample = 0
         end_sample = 0
-        monotony_df['icg'].diff().fillna(0)
         if len(monotony_df) > 2:
             idx = np.argmax(monotony_df['icg'].diff().fillna(0) > 0)
-            start_sample = monotony_df['index'].iloc[idx-1]
+            start_sample = monotony_df['index'].iloc[idx - 1]
             end_sample = monotony_df['index'].iloc[idx]
         elif len(monotony_df) != 0:
             start_sample = monotony_df['index'].iloc[0]
             end_sample = monotony_df['index'].iloc[-1]
-        return start_sample, end_sample     # That are not absolute positions yet
+
+        return start_sample, end_sample  # That are not absolute positions yet
 
     @staticmethod
-    def get_zero_crossings(monotonic_segment_3rd_der: pd.DataFrame, monotonic_segment_2nd_der: pd.DataFrame, height: int, sampling_rate_hz: int):
+    def get_zero_crossings(monotonic_segment_3rd_der: pd.DataFrame, monotonic_segment_2nd_der: pd.DataFrame,
+                           height: int, sampling_rate_hz: int):
         constraint = 10 * height / sampling_rate_hz
 
         zero_crossings = np.where(np.diff(np.signbit(monotonic_segment_3rd_der['3rd_der'])))[0]
@@ -228,17 +215,14 @@ class BPointExtractionForouzanfar(BaseExtraction):
         local_maximums = pd.DataFrame(local_maximums, columns=['sample_position'])
 
         significant_maximums = local_maximums.drop(local_maximums[
-            monotonic_segment_3rd_der.iloc[
-                local_maximums['sample_position']].values < constraint].index, axis=0)
+                                                       monotonic_segment_3rd_der['3rd_der'].iloc[
+                                                           local_maximums[
+                                                               'sample_position']].values < constraint].index, axis=0)
 
         if isinstance(significant_maximums, type(None)):
             return pd.DataFrame([0], columns=['sample_position'])
         elif len(significant_maximums) == 0:
             return pd.DataFrame([0], columns=['sample_position'])
         else:
+            print(f"Received significant maximum!")
             return significant_maximums
-
-    @staticmethod
-    def outlier_correction(b_points: pd.DataFrame):
-        return 0
-
