@@ -21,18 +21,18 @@ def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int, filter_type: s
         clean_signal: pd.Series containing filtered signal
     """
 
-    if filter_type is "butterworth":
+    if filter_type == "butterworth":
         sos = signal.butter(N=4, Wn=[0.5, 25], btype="bandpass", output="sos", fs=sampling_rate_hz)
         clean_signal = signal.sosfiltfilt(sos, raw_signal)
 
-    elif filter_type is "elliptic":
+    elif filter_type == "elliptic":
         rp = 1.0
         rs = 80.0
         sos = signal.ellip(N=2, rp=rp, rs=rs, Wn=[0.75, 40], btype="bandpass", output="sos", fs=sampling_rate_hz,
                            analog=False)
         clean_signal = signal.sosfiltfilt(sos, raw_signal)
 
-    elif filter_type is "savgol":  # Savitzky-Golay filter (for high frequency noise?!)
+    elif filter_type == "savgol":  # Savitzky-Golay filter (for high frequency noise?!)
         clean_signal = signal.savgol_filter(raw_signal, window_length=61, polyorder=3)
 
     else:
