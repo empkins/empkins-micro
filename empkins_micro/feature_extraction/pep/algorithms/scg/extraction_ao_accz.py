@@ -20,7 +20,7 @@ class AOExtraction_AccZ(BaseExtraction):
             self,
             save_ivc: Optional[bool] = False
     ):
-        """initialize new AOExtraction algorithm instance (AO = aortic valve opening)
+        """initialize new AOExtraction_AccZ algorithm instance (AO = aortic valve opening)
 
         Args:
             save_ivc : bool
@@ -40,7 +40,7 @@ class AOExtraction_AccZ(BaseExtraction):
 
         Args:
             signal_clean:
-                cleaned SCG signal or norm of cleaned x, y, z channels
+                cleaned SCG signal (acc_z component, dorso-ventral)
             heartbeats:
                 pd.DataFrame containing one row per segmented heartbeat, each row contains start, end, and R-peak
                 location (in samples from beginning of signal) of that heartbeat, index functions as id of heartbeat
