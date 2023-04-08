@@ -20,7 +20,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
 
     def __init__(
             self,
-            correct_outliers: Optional[bool] = False
+            correct_outliers: Optional[bool] = False,
     ):
         """initialize new BPointExtractionForouzanfar algorithm instance
 
@@ -28,6 +28,9 @@ class BPointExtractionForouzanfar(BaseExtraction):
         ----------
         correct_outliers : bool
             Indicates whether to perform outlier correction (True) or not (False)
+        standard_amplitude : bool
+            Indicates whether to use the amplitude of the C-Point or the amplitude difference between the C-Point and
+            the A-Point as constraint to detect the monotonic segment
         """
 
         self.correct_outliers = correct_outliers
@@ -84,15 +87,15 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # Detect the local minimum (A-Point) within one third of the beat to beat interval prior to the C-Point
             a_point = self.get_a_point(signal_clean, search_interval, c_point) + (c_point - search_interval)
 
-            # Calculate the amplitude difference between the C-Point and the A-Point
-            height = signal_clean.iloc[c_point]
-
             # Select the signal_segment between the A-Point and the C-Point
             signal_clean_segment = signal_clean.iloc[a_point:c_point + 1]
 
+            # Define the C-Point amplitude which is used as a constraint for monotonic segment detection
+            c_amplitude = signal_clean.iloc[c_point]
+
             # Step 4.1: Get the most prominent monotonic increasing segment between the A-Point and the C-Point
             start_sample, end_sample = self.get_monotonic_increasing_segments_2nd_der(
-                signal_clean_segment, second_der[a_point:c_point + 1], height) + a_point
+                signal_clean_segment, second_der[a_point:c_point + 1], c_amplitude) + a_point
             if (start_sample == a_point) & (end_sample == a_point):
                 warnings.warn(f"Could not find a monotonic increasing segment for heartbeat {idx}! "
                               f"The B-Point was set to NaN")
@@ -107,6 +110,9 @@ class BPointExtractionForouzanfar(BaseExtraction):
             monotonic_segment_2nd_der = pd.DataFrame(second_der[start:end], columns=['2nd_der'])
             # 3rd derivative of the segment
             monotonic_segment_3rd_der = pd.DataFrame(third_der[start:end], columns=['3rd_der'])
+
+            # Calculate the amplitude difference between the C-Point and the A-Point
+            height = signal_clean.iloc[c_point] - signal_clean.iloc[a_point]
 
             # Compute the significant zero_crossings
             significant_zero_crossings = self.get_zero_crossings(
@@ -146,16 +152,15 @@ class BPointExtractionForouzanfar(BaseExtraction):
         monotony_df['borders'].iat[0] = 'start_increase'
 
         # start_increase if the sign of the second derivative changes from negative to positive
-        monotony_df.loc[((monotony_df['2nd_der'][1:] < 0) &
+        monotony_df.loc[((monotony_df['2nd_der'][1:-2] < 0) &
                          (monotony_df['2nd_der'].shift(-1) >= 0)), 'borders'] = 'start_increase'
         # end_increase if the sign of the second derivative changes from positive to negative
-        monotony_df.loc[((monotony_df['2nd_der'][1:] >= 0) &
+        monotony_df.loc[((monotony_df['2nd_der'][1:-2] >= 0) &
                          (monotony_df['2nd_der'].shift(-1) < 0)), 'borders'] = 'end_increase'
 
         # drop all samples that are no possible start-/ end-points
         monotony_df = monotony_df.drop(monotony_df[monotony_df['borders'] == 0].index)
         monotony_df = monotony_df.reset_index()
-
         # Drop start- and corresponding end-point, if their start value does not reach at least 1/2 of H
         monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'start_increase') &
                                                    (monotony_df['icg'] > int(height / 2))].index + 1, axis=0)
@@ -180,7 +185,6 @@ class BPointExtractionForouzanfar(BaseExtraction):
         elif len(monotony_df) != 0:
             start_sample = monotony_df['index'].iloc[0]
             end_sample = monotony_df['index'].iloc[-1]
-
         return start_sample, end_sample  # That are not absolute positions yet
 
     @staticmethod
