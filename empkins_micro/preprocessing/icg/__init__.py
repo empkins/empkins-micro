@@ -1,1 +1,1 @@
-from empkins_micro.preprocessing.icg import icg_cleaning
+from empkins_micro.preprocessing.icg import cleaning
