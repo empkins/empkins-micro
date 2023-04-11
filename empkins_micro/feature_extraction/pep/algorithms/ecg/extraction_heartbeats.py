@@ -58,9 +58,6 @@ class HeartBeatExtraction(Algorithm):
             self: fills heartbeat_list_
         """
 
-        # TODO methode r peaks? neurokit, pan-tompkins, promac, ... vlt pan tompkins ?
-        # TODO correct artifacts = True?
-
         _, r_peaks = nk.ecg_peaks(ecg_clean, sampling_rate=sampling_rate_hz, method="neurokit")
         r_peaks = r_peaks["ECG_R_Peaks"]
 
@@ -130,7 +127,7 @@ class HeartBeatExtraction(Algorithm):
         # check if R-peak occurs between corresponding start and end
         check = heartbeats.apply(lambda x: x["start_sample"] < x["r_peak_sample"] < x["end_sample"],
                                  axis=1)
-        if len(check.loc[check == False]) > 0:
+        if len(check.loc[~check]) > 0:
             raise ValueError(
                 f"Start/end/R-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
 
