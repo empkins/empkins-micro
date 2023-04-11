@@ -1,8 +1,11 @@
+from typing import Optional
+
 import pandas as pd
 from scipy import signal
 
 
-def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int, filter_type: str) -> pd.Series:
+def clean_icg_deriv(raw_signal: pd.Series, sampling_rate_hz: int,
+                    filter_type: Optional[str] = "butterworth") -> pd.Series:
     """function which cleans ICG dZ/dt signal using butterworth filtering
 
     Butterworth band-pass filter: 4th order, low cutoff 0.5 Hz, high cutoff 25 Hz, see Forouzanfar 2019
