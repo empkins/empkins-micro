@@ -31,7 +31,7 @@ class AOExtraction_AccZ(BaseExtraction):
         self.save_ivc = save_ivc
 
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts AO points from SCG signal
 
         aortic valve opening point corresponds to the first major maximum of the SCG signal that follows after the
@@ -79,7 +79,6 @@ class AOExtraction_AccZ(BaseExtraction):
             window_end = window_start + window_length_samples
             window_scg = heartbeat_scg[window_start:window_end]
 
-            # TODO? evtl kann man auch so ähnlich wie bei C's correcten, aber glaub nicht, dass das nötig ist
             # find possible IVCs (minima in search window)
             ivc_candidates = signal.find_peaks(-window_scg)[0]
 
