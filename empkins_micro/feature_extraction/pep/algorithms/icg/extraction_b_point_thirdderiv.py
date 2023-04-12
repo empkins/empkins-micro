@@ -71,8 +71,10 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
         c_points = self.get_c_points(signal_clean, heartbeats, sampling_rate_hz)
 
         # used subsequently to store ids of heartbeats where no B was detected because there was no C
-        # (B-points are always detected, since they are set to the max of the 3rd derivative, and there is always a max)
+        # (Bs should always be found, since they are set to the max of the 3rd derivative, and there is always a max)
         heartbeats_no_c_b = []
+        # (but in case of wrongly detected Cs, the search window might be invalid, then no B can be found)
+        heartbeats_no_b = []
 
         # search B-point for each heartbeat of the given signal
         for idx, data in heartbeats.iterrows():
@@ -110,9 +112,13 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
                 window_length_samples = int((self.window_b_detection_ms / 1000) * sampling_rate_hz)
                 window_start = heartbeat_c_point - window_length_samples
             else:
-                window_start = np.NaN
-                window_end = np.NaN
-                warnings.warn("That should never happen!")
+                raise ValueError("That should never happen!")
+
+            # might happen for wrongly detected Cs (search window becomes invalid)
+            if window_start < 0 or window_end < 0:
+                heartbeats_no_b.append(idx)
+                b_points.at[idx, "b_point"] = np.NaN
+                continue
 
             # find max in B window and calculate B-point relative to signal start
             heartbeat_b_window = heartbeat_icg_3rd_der[window_start:window_end]
@@ -120,6 +126,17 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
             b_point = b_window_max + window_start + heartbeat_start
 
             b_points.at[idx, "b_point"] = b_point
+
+        # inform user about missing B-points
+        if len(heartbeats_no_c_b) > 0 or len(heartbeats_no_b) > 0:
+            nan_rows = b_points[b_points["b_point"].isna()]
+            n = len(nan_rows)
+            nan_rows.drop(index=heartbeats_no_c_b, inplace=True)
+            nan_rows.drop(index=heartbeats_no_b, inplace=True)
+            warnings.warn(f"No B-point detected in {n} heartbeats (for heartbeats {heartbeats_no_c_b} no B "
+                          f"could be extracted, because there was no C; for heartbeats {heartbeats_no_b} the search "
+                          f"window was invalid probably due to wrongly detected C; for heartbeats "
+                          f"{nan_rows.index.values} apparently also no B was found for some other reason?!)")
 
         self.points_ = b_points
         return self
