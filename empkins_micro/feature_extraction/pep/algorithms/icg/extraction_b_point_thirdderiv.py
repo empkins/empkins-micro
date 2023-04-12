@@ -42,7 +42,7 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
         self.save_icg_derivatives = save_icg_derivatives
 
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts B-points from given cleaned ICG derivative signal
 
         Args:
@@ -70,6 +70,10 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
         # get C-points of given ICG derivative signal
         c_points = self.get_c_points(signal_clean, heartbeats, sampling_rate_hz)
 
+        # used subsequently to store ids of heartbeats where no B was detected because there was no C
+        # (B-points are always detected, since they are set to the max of the 3rd derivative, and there is always a max)
+        heartbeats_no_c_b = []
+
         # search B-point for each heartbeat of the given signal
         for idx, data in heartbeats.iterrows():
 
@@ -90,11 +94,17 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
             # calculate R-peak and C-point position relative to start of current heartbeat
             heartbeat_r_peak = data["r_peak_sample"] - heartbeat_start
-            heartbeat_c_point = c_points["c_point"].loc[idx].item() - heartbeat_start
+            heartbeat_c_point = c_points["c_point"].loc[idx] - heartbeat_start
+
+            # C-point can be NaN, then, extraction of B is not possible, so B is set to NaN
+            if np.isnan(heartbeat_c_point):
+                heartbeats_no_c_b.append(idx)
+                b_points.at[idx, "b_point"] = np.NaN
+                continue
 
             # set window end to C-point position and set window start according to specified method
             window_end = heartbeat_c_point
-            if self.window_b_detection_ms is "R":
+            if self.window_b_detection_ms == "R":
                 window_start = heartbeat_r_peak
             elif isinstance(self.window_b_detection_ms, int):
                 window_length_samples = int((self.window_b_detection_ms / 1000) * sampling_rate_hz)
@@ -115,7 +125,7 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
         return self
 
     @staticmethod
-    def get_c_points(signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def get_c_points(signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
 
         c_extractor = CPointExtraction_ScipyFindPeaks(window_c_correction=3, save_candidates=False)
         c_extractor.extract(signal_clean=signal_clean, heartbeats=heartbeats, sampling_rate_hz=sampling_rate_hz)

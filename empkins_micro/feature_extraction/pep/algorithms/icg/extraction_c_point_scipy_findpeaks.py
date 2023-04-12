@@ -35,7 +35,7 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
         self.save_candidates = save_candidates
 
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts C-points (max of most prominent peak) from given cleaned ICG derivative signal
 
         Args:
@@ -128,8 +128,8 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 for c in heartbeat_c_candidates:
                     c_points.at[idx, "c_candidates"].append(c + heartbeat_start)
 
-            if len(heartbeats_no_c) > 0:
-                warnings.warn(f"No C-point detected in {len(heartbeats_no_c)} heartbeats ({heartbeats_no_c})")
+        if len(heartbeats_no_c) > 0:
+            warnings.warn(f"No C-point detected in {len(heartbeats_no_c)} heartbeats ({heartbeats_no_c})")
 
         self.points_ = c_points
         return self
