@@ -64,8 +64,14 @@ class HeartBeatExtraction(Algorithm):
         heartbeats = pd.DataFrame(index=np.arange(0, len(r_peaks)), columns=["start_time",
                                                                              "start_sample",
                                                                              "end_sample",
-                                                                             "r_peak_sample"])
+                                                                             "r_peak_sample",
+                                                                             "rr_interval_samples"])
         heartbeats["r_peak_sample"] = r_peaks
+
+        # save RR-interval to successive heartbeat
+        rr_interval_to_next_beat = np.abs(heartbeats["r_peak_sample"].diff(periods=-1))
+        rr_interval_to_next_beat.iloc[-1] = rr_interval_to_next_beat.iloc[-2]  # extrapolate last beat
+        heartbeats["rr_interval_samples"] = rr_interval_to_next_beat
 
         if self.variable_length:
             # split ecg signal into heartbeats with varying length
