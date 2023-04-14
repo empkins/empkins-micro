@@ -21,7 +21,7 @@ class HeartBeatExtraction(Algorithm):
 
     def __init__(
             self,
-            variable_length: bool,
+            variable_length: Optional[bool] = True,
             start_factor: Optional[float] = 0.35
     ):
         """initialize new HeartBeatExtraction algorithm instance
@@ -58,17 +58,20 @@ class HeartBeatExtraction(Algorithm):
             self: fills heartbeat_list_
         """
 
-        # TODO methode r peaks? neurokit, pan-tompkins, promac, ... vlt pan tompkins ?
-        # TODO correct artifacts = True?
-
         _, r_peaks = nk.ecg_peaks(ecg_clean, sampling_rate=sampling_rate_hz, method="neurokit")
         r_peaks = r_peaks["ECG_R_Peaks"]
 
         heartbeats = pd.DataFrame(index=np.arange(0, len(r_peaks)), columns=["start_time",
                                                                              "start_sample",
                                                                              "end_sample",
-                                                                             "r_peak_sample"])
+                                                                             "r_peak_sample",
+                                                                             "rr_interval_samples"])
         heartbeats["r_peak_sample"] = r_peaks
+
+        # save RR-interval to successive heartbeat
+        rr_interval_to_next_beat = np.abs(heartbeats["r_peak_sample"].diff(periods=-1))
+        rr_interval_to_next_beat.iloc[-1] = rr_interval_to_next_beat.iloc[-2]  # extrapolate last beat
+        heartbeats["rr_interval_samples"] = rr_interval_to_next_beat
 
         if self.variable_length:
             # split ecg signal into heartbeats with varying length
@@ -130,8 +133,9 @@ class HeartBeatExtraction(Algorithm):
         # check if R-peak occurs between corresponding start and end
         check = heartbeats.apply(lambda x: x["start_sample"] < x["r_peak_sample"] < x["end_sample"],
                                  axis=1)
-        if len(check.loc[check == False]) > 0:
-            raise ValueError(f"Start, end, or r-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
+        if len(check.loc[~check]) > 0:
+            raise ValueError(
+                f"Start/end/R-peak position of heartbeat {list(check.loc[check == False].index)} could be incorrect!")
 
         self.heartbeat_list_ = heartbeats
         return self
