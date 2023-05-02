@@ -22,23 +22,20 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
             save_candidates: Optional[bool] = False
     ):
         """initialize new CPointExtraction_ScipyFindPeaks algorithm instance
-
-        Parameters
-        ----------
-        window_c_correction : int
-            how many preceding heartbeats are taken into account for C-point correction (using mean R-C-distance)
-        save_candidates : bool
-            indicates whether only the selected C-point position (one per heartbeat) is saved in _points (False),
-            or also all other C-candidates (True)
+        Args:
+            window_c_correction : int
+                how many preceding heartbeats are taken into account for C-point correction (using mean R-C-distance)
+            save_candidates : bool
+                indicates whether only the selected C-point position (one per heartbeat) is saved in _points (False),
+                or also all other C-candidates (True)
         """
 
         self.window_c_correction = window_c_correction
         self.save_candidates = save_candidates
 
     @make_action_safe
-    def extract(self, signal_clean: pd.DataFrame, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts C-points (max of most prominent peak) from given cleaned ICG derivative signal
-
         Args:
             signal_clean:
                 cleaned ICG derivative signal
@@ -47,7 +44,6 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 location (in samples from beginning of signal) of that heartbeat, index functions as id of heartbeat
             sampling_rate_hz:
                 sampling rate of ICG derivative signal in hz
-
         Returns:
             saves resulting C-point positions (and C-candidates) in points_, index is heartbeat id
         """
@@ -87,35 +83,38 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
 
             if len(heartbeat_c_candidates) < 1:
                 heartbeats_no_c.append(idx)
-                selected_c = np.NaN
-                r_c_distance = np.NaN
+                c_points.at[idx, "c_point"] = np.NaN
+                continue
+
+            # calculates distance of R-peak to all C-candidates in samples, positive when C occurs after R
+            r_c_distance = heartbeat_c_candidates - heartbeat_r_peak
+
+            if len(heartbeat_c_candidates) == 1:
+                selected_c = heartbeat_c_candidates[0]  # convert to int (instead of array)
+                r_c_distance = r_c_distance[0]
+
+                # C-point before R-peak is invalid
+                if r_c_distance < 0:
+                    heartbeats_no_c.append(idx)
+                    c_points.at[idx, "c_point"] = np.NaN
+                    continue
+
+            elif len(heartbeat_c_candidates) > 1:
+
+                # take averaged R-C-distance over the 3 (or window_c_correction) preceding heartbeats
+                # calculate the absolute difference of R-C-distances for all C-candidates to this mean
+                # (to check which of the C-candidates are most probably the wrongly detected Cs)
+                distance_diff = np.abs(r_c_distance - mean_prev_r_c_distance)
+
+                # choose the C-candidate with the smallest absolute difference in R-C-distance
+                # (the one, where R-C-distance changed the least compared to previous heartbeats)
+                c_idx = np.argmin(distance_diff)
+                selected_c = heartbeat_c_candidates[c_idx]
+                r_c_distance = r_c_distance[c_idx]  # save only R-C-distance for selected C
 
             else:
-                # calculates distance of R-peak to all C-candidates in samples, positive when C occurs after R
-                r_c_distance = heartbeat_c_candidates - heartbeat_r_peak
-
-                if len(heartbeat_c_candidates) == 1:
-                    selected_c = heartbeat_c_candidates[0]  # convert to int (instead of array)
-                    r_c_distance = r_c_distance[0]
-                    if r_c_distance < 0:
-                        warnings.warn("The C-point detected in heartbeat " + str(idx) + " occurs before R-peak")
-
-                elif len(heartbeat_c_candidates) > 1:
-
-                    # take averaged R-C-distance over the 3 (or window_c_correction) preceding heartbeats
-                    # calculate the absolute difference of R-C-distances for all C-candidates to this mean
-                    # (to check which of the C-candidates are most probably the wrongly detected Cs)
-                    distance_diff = np.abs(r_c_distance - mean_prev_r_c_distance)
-
-                    # choose the C-candidate with the smallest absolute difference in R-C-distance
-                    # (the one, where R-C-distance changed the least compared to previous heartbeats)
-                    c_idx = np.argmin(distance_diff)
-                    selected_c = heartbeat_c_candidates[c_idx]
-                    r_c_distance = r_c_distance[c_idx]  # save only R-C-distance for selected C
-
-                else:
-                    warnings.warn("That should never happen!")
-                    selected_c = np.NaN
+                warnings.warn("That should never happen!")
+                selected_c = np.NaN
 
             # update R-C-distances and mean for next heartbeat
             prev_r_c_distances.append(r_c_distance)
@@ -129,9 +128,8 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 for c in heartbeat_c_candidates:
                     c_points.at[idx, "c_candidates"].append(c + heartbeat_start)
 
-            if len(heartbeats_no_c) > 0:
-                warnings.warn("No C-point detected in " + str(len(heartbeats_no_c)) + " heartbeats (" + str(
-                    heartbeats_no_c) + ")")
+        if len(heartbeats_no_c) > 0:
+            warnings.warn(f"No valid C-point detected in {len(heartbeats_no_c)} heartbeats ({heartbeats_no_c})")
 
         self.points_ = c_points
         return self

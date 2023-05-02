@@ -4,15 +4,14 @@ Copied and modified from *gaitmap - The Gait and Movement Analysis Package* (MaD
 The original code can be found at: https://mad-srv.informatik.uni-erlangen.de/MadLab/GaitAnalysis/gaitmap.
 """
 
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
-
-from biopsykit.signals.imu.static_moment_detection import _find_static_samples, METRIC_FUNCTION_NAMES
+from biopsykit.signals.imu.static_moment_detection import METRIC_FUNCTION_NAMES, _find_static_samples
 from biopsykit.utils._datatype_validation_helper import _assert_is_dtype
 
-from empkins_micro.preprocessing.imu.rotations import rotate_dataset, get_gravity_rotation
+from empkins_micro.preprocessing.imu.rotations import get_gravity_rotation, rotate_dataset
 
 #: The gravity vector in m/s^2
 GRAV_VEC = np.array([0.0, 0.0, 9.81])
