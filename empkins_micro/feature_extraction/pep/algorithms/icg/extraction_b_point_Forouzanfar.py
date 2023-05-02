@@ -67,6 +67,8 @@ class BPointExtractionForouzanfar(BaseExtraction):
         second_der = np.gradient(signal_clean)
         third_der = np.gradient(second_der)
 
+        # beat to beat interval mit vorherigem heartbeat berechnen, dazu heartbeats ab 1 beginnen lasssen und bis ende durchlaufen lassen
+
         for idx, data in heartbeats[:-1].iterrows():
             # check if c_points contain NaN. If this is the case, set the b_point to NaN
             if check_c_points[idx] | check_c_points[idx + 1]:
@@ -161,7 +163,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
         # drop all samples that are no possible start-/ end-points
         monotony_df = monotony_df.drop(monotony_df[monotony_df['borders'] == 0].index)
         monotony_df = monotony_df.reset_index()
-        # Drop start- and corresponding end-point, if their start value does not reach at least 1/2 of H
+        # Drop start- and corresponding end-point, if their start value is higher than 1/2 of H
         monotony_df = monotony_df.drop(monotony_df[(monotony_df['borders'] == 'start_increase') &
                                                    (monotony_df['icg'] > int(height / 2))].index + 1, axis=0)
 
