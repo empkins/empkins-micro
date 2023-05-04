@@ -6,8 +6,9 @@ import wave
 
 import numpy as np
 import pandas as pd
-import webrtcvad
-from pydub import AudioSegment
+
+
+
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
@@ -264,6 +265,12 @@ def process_silence(audio_file):
     Returns:
         Dataframe value
     """
+    try:
+        import webrtcvad
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'webrtcvad' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     feat_dict_list = []
     y, sr = read_wave(str(audio_file))
 
@@ -335,6 +342,12 @@ def calc_pause_segment(audio_file, mono_wav):
         video_uri: video path; r_config: raw variable config object
         out_dir: (str) Output directory for processed output
     """
+    try:
+        from pydub import AudioSegment
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'pydub' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     try:
         audio_duration = get_length(audio_file)
 

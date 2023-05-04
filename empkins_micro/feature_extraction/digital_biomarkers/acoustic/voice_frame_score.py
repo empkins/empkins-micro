@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import parselmouth
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
@@ -26,6 +25,12 @@ def voice_segment(path):
     Returns:
         (float) total voice frames, participant voiced frames and voiced frames percentage
     """
+    try:
+        import parselmouth
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'parselmouth' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     sound_pat = parselmouth.Sound(str(path))
     pitch = sound_pat.to_pitch()
     total_frames, voiced_frames = audio_pitch_frame(pitch)

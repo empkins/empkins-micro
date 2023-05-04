@@ -5,8 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import parselmouth
-from parselmouth.praat import run_file
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
@@ -31,6 +29,13 @@ def calc_voicetremor(snd_file):
         snd_file: (.wav) parsed audio file
     Returns tremor endpoint dataframe
     """
+    try:
+        import parselmouth
+        from parselmouth.praat import run_file
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'parselmouth' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     try:
 
         audio_duration = get_length(snd_file)

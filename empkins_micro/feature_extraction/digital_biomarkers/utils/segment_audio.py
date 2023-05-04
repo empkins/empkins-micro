@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from pydub import AudioSegment
 
 from empkins_micro.utils._types import path_t
 from empkins_io.datasets.d03.macro_prestudy.helper import clean_diarization, fix_stop_time
@@ -14,6 +13,12 @@ from empkins_io.datasets.d03.macro_prestudy.helper import clean_diarization, fix
 def segment_audio(
     base_path: path_t, audio_path: Path, subject_id: str, condition: str, diarization: pd.DataFrame, files_path: Path
 ):
+    try:
+        from pydub import AudioSegment
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'pydub' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     try:
         dia_segments = clean_diarization(diarization=diarization)
 

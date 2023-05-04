@@ -7,14 +7,6 @@ from scipy.io import wavfile
 
 from empkins_micro.utils._types import path_t
 
-try:
-    from pyannote.audio import Pipeline
-except ImportError as e:
-    raise ImportError(
-        "'pyannote.audio' is not installed that is required for speaker diarization. "
-        "Please install it with 'pip install pyannote.audio' or 'poetry add pyannote.audio'."
-    ) from e
-
 __all__ = ["SpeakerDiarization"]
 
 
@@ -71,6 +63,12 @@ class SpeakerDiarization:
         :class:`pandas.DataFrame`
             Raw speaker diarization data as pandas DataFrame.
         """
+        try:
+            from pyannote.audio import Pipeline
+        except ModuleNotFoundError as e:
+            raise ModuleNotFoundError("Module 'pyannote.audio' not found. Please install it manually or "
+                                      "install 'empkins-micro' with 'audio' extras via "
+                                      "'poetry install empkins_micro -E audio'") from e
         # pyannote pipeline for speaker diarization
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization@2.1", use_auth_token=self._pyannote_auth_token
