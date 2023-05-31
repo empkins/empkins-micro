@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from scipy.signal import argrelmin
+from scipy.signal import argrelmin, find_peaks
 from typing import Optional
 
 from tpcp import Parameter, make_action_safe
@@ -66,6 +66,7 @@ class BPointExtractionDebski(BaseExtraction):
         # Compute the second derivative of the ICG-signal
         icg_2nd_der = np.gradient(signal_clean)
 
+        counter = 0
         # go trough each R-C interval independently and search for the local minima
         for idx, data in heartbeats.iterrows():
             # check if r_peaks/c_points contain NaN. If this is the case, set the b_point to NaN and continue
@@ -84,33 +85,41 @@ class BPointExtractionDebski(BaseExtraction):
             icg_search_window = icg_2nd_der[start_r_c:(end_r_c + 1)]
 
             # Compute the local minima in this interval
-            icg_min = argrelmin(icg_search_window)
+            #icg_min = argrelmin(icg_search_window)
+            icg_min = find_peaks(-icg_search_window)[0]
+            #print(icg_min)
 
             # Compute the distance between the C-point and the minima of the interval and select the entry with
             # the minimal distance as B-point
-            if len(icg_min[0]) >= 1:
+            if len(icg_min) >= 1:
                 distance = end_r_c - icg_min
                 b_point_idx = distance.argmin()
-                b_point = icg_min[0][b_point_idx]
+                b_point = icg_min[b_point_idx]
                 # Compute the absolute sample position of the local B-point
                 b_point = b_point + start_r_c
             else:
                 # If there is no minima set the B-Point to NaN
-                b_point = np.NaN
-                warnings.warn(f"Could not find a local minimum i the R-C interval for heartbeat {idx}! "
-                              f"B-Point was set to NaN.")
+                if not self.correct_outliers:
+                    b_point = np.NaN
+                else:
+                    b_point = data['r_peak_sample']
+                counter += 1
 
             # Add the detected B-point to the b_points Dataframe
+            '''
             if not self.correct_outliers:
                 if b_point < data['r_peak_sample']:
                     b_points['b_point'].iloc[idx] = np.NaN
-                    warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
-                                  f" The index of the B-Point was set to NaN.")
+                    #warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
+                    #              f" The index of the B-Point was set to NaN. However, this should never happen!")
                 else:
                     b_points['b_point'].iloc[idx] = b_point
             else:
                 b_points['b_point'].iloc[idx] = b_point
+            '''
+            b_points['b_point'].iloc[idx] = b_point
 
+        warnings.warn(f"Could not detect a local minimum in the RC-interval in {counter} heartbeats!")
         points = b_points
         self.points_ = points
         return self

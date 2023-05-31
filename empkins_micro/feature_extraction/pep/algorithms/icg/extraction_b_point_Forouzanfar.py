@@ -67,21 +67,20 @@ class BPointExtractionForouzanfar(BaseExtraction):
         second_der = np.gradient(signal_clean)
         third_der = np.gradient(second_der)
 
-        # beat to beat interval mit vorherigem heartbeat berechnen, dazu heartbeats ab 1 beginnen lasssen und bis ende durchlaufen lassen
 
-        for idx, data in heartbeats[:-1].iterrows():
+        for idx, data in heartbeats[1:].iterrows():
             # check if c_points contain NaN. If this is the case, set the b_point to NaN
-            if check_c_points[idx] | check_c_points[idx + 1]:
+            if check_c_points[idx] | check_c_points[idx - 1]:
                 b_points['b_point'].iloc[idx] = np.NaN
                 warnings.warn(f"Either the r_peak or the c_point contains NaN at position{idx}! "
                               f"B-Point was set to NaN.")
                 continue
             else:
                 # Detect the main peak in the dZ/dt signal (C-Point)
-                c_point = c_points['c_point'][idx]
+                c_point = c_points['c_point'].iloc[idx]
 
             # Compute the beat to beat interval
-            beat_to_beat = c_points['c_point'].iloc[idx + 1] - c_points['c_point'].iloc[idx]
+            beat_to_beat = c_points['c_point'].iloc[idx] - c_points['c_point'].iloc[idx - 1]
 
             # Compute the search interval for the A-Point
             search_interval = int(beat_to_beat / 3)
@@ -99,14 +98,17 @@ class BPointExtractionForouzanfar(BaseExtraction):
             start_sample, end_sample = self.get_monotonic_increasing_segments_2nd_der(
                 signal_clean_segment, second_der[a_point:c_point + 1], c_amplitude) + a_point
             if (start_sample == a_point) & (end_sample == a_point):
-                warnings.warn(f"Could not find a monotonic increasing segment for heartbeat {idx}! "
-                              f"The B-Point was set to NaN")
-                b_points['b_point'].iloc[idx] = np.NaN
+                #warnings.warn(f"Could not find a monotonic increasing segment for heartbeat {idx}! "
+                #              f"The B-Point was set to NaN")
+                if self.correct_outliers:
+                    b_points['b_point'].iloc[idx] = data['r_peak_sample']
+                else:
+                    b_points['b_point'].iloc[idx] = np.NaN
                 continue
 
             # Get the first third of the monotonic increasing segment
             start = start_sample
-            end = end_sample - int(2 * (end_sample - start_sample) / 3)
+            end = end_sample - int((2/3) * (end_sample - start_sample))
 
             # 2nd derivative of the segment
             monotonic_segment_2nd_der = pd.DataFrame(second_der[start:end], columns=['2nd_der'])
@@ -127,6 +129,18 @@ class BPointExtractionForouzanfar(BaseExtraction):
             # If there are no zero crossings or local maximums use the first Point of the segment as B-Point
             significant_features = pd.concat([significant_zero_crossings, significant_local_maximums], axis=0) + start
             b_point = significant_features.iloc[np.argmin(c_point - significant_features)][0]
+
+            '''
+            if not self.correct_outliers:
+                if b_point < data['r_peak_sample']:
+                    b_points['b_point'].iloc[idx] = np.NaN
+                    #warnings.warn(f"The detected B-point is located before the R-Peak at heartbeat {idx}!"
+                    #              f" The B-point was set to NaN.")
+                else:
+                    b_points['b_point'].iloc[idx] = b_point
+            else:
+                b_points['b_point'].iloc[idx] = b_point
+            '''
             b_points['b_point'].iloc[idx] = b_point
 
         self.points_ = b_points
@@ -144,7 +158,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
     def get_monotonic_increasing_segments_2nd_der(signal_clean_segment: pd.DataFrame, second_der_segment: pd.DataFrame,
                                                   height: int):
         signal_clean_segment.index = np.arange(0, len(signal_clean_segment))
-        monotony_df = pd.DataFrame(signal_clean_segment, columns=['icg'])
+        monotony_df = pd.DataFrame(signal_clean_segment.values, columns=['icg'])
         monotony_df['2nd_der'] = second_der_segment
         monotony_df['borders'] = 0
 
@@ -181,7 +195,7 @@ class BPointExtractionForouzanfar(BaseExtraction):
         start_sample = 0
         end_sample = 0
         if len(monotony_df) > 2:
-            idx = np.argmax(monotony_df['icg'].diff().fillna(0) > 0)
+            idx = np.argmax(monotony_df['icg'].diff())
             start_sample = monotony_df['index'].iloc[idx - 1]
             end_sample = monotony_df['index'].iloc[idx]
         elif len(monotony_df) != 0:
@@ -230,5 +244,5 @@ class BPointExtractionForouzanfar(BaseExtraction):
         elif len(significant_maximums) == 0:
             return pd.DataFrame([0], columns=['sample_position'])
         else:
-            print(f"Received significant maximum!")
+            #print(f"Received significant maximum!")
             return significant_maximums

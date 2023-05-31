@@ -54,7 +54,6 @@ class QWaveOnsetExtractionVanLien(BaseExtraction):
         q_wave_onset = r_peaks - time_interval_in_samples
 
         points = q_wave_onset
-        points = super().match_points_heartbeats(self, points=points, heartbeats=heartbeats)
 
         self.points_ = points
         return self

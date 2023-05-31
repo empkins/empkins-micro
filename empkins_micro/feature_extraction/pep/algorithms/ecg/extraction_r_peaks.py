@@ -28,10 +28,11 @@ class RPeakExtraction(BaseExtraction):
         """
 
         # get the r_peaks from the heartbeats Dataframe
-        r_peaks = heartbeats["r_peak_sample"]
+        r_peaks = pd.DataFrame(index=heartbeats.index, columns=["R-peak"])
+        r_peaks['R-peak'] = heartbeats["r_peak_sample"]
 
         points = r_peaks
-        points = super().match_points_heartbeats(self, points=points, heartbeats=heartbeats)
+        #points = super().match_points_heartbeats(self, points=points, heartbeats=heartbeats)
 
         self.points_ = points
         return self

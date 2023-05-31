@@ -16,6 +16,7 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
     # input parameters
     window_b_detection_ms: Parameter[Union[str, int]]  # either 'R' or integer defining window length in ms
     save_icg_derivatives: Parameter[bool]
+    correct_outliers: Parameter[bool]
 
     # results
     icg_derivatives_: Dict[int, pd.DataFrame]
@@ -23,7 +24,8 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
     def __init__(
             self,
             window_b_detection_ms: Optional[Union[str, int]] = 150,
-            save_icg_derivatives: Optional[bool] = False
+            save_icg_derivatives: Optional[bool] = False,
+            correct_outliers: Optional[bool] = False
     ):
         """initialize new BPointExtraction_ThirdDeriv algorithm instance
 
@@ -40,9 +42,10 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
         self.window_b_detection_ms = window_b_detection_ms
         self.save_icg_derivatives = save_icg_derivatives
+        self.correct_outliers = correct_outliers
 
     @make_action_safe
-    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
+    def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, c_points: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts B-points from given cleaned ICG derivative signal
 
         Args:
@@ -67,8 +70,6 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
             icg_derivatives = {k: pd.DataFrame(columns=["icg_der", "icg_2nd_der", "icg_3rd_der"]) for k in
                                heartbeats.index}
 
-        # get C-points of given ICG derivative signal
-        c_points = self.get_c_points(signal_clean, heartbeats, sampling_rate_hz)
 
         # used subsequently to store ids of heartbeats where no B was detected because there was no C
         # (Bs should always be found, since they are set to the max of the 3rd derivative, and there is always a max)
@@ -96,7 +97,7 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
             # calculate R-peak and C-point position relative to start of current heartbeat
             heartbeat_r_peak = data["r_peak_sample"] - heartbeat_start
-            heartbeat_c_point = c_points["c_point"].loc[idx] - heartbeat_start
+            heartbeat_c_point = c_points["c_point"].iloc[idx] - heartbeat_start
 
             # C-point can be NaN, then, extraction of B is not possible, so B is set to NaN
             if np.isnan(heartbeat_c_point):
@@ -125,7 +126,18 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
             b_window_max = np.argmax(heartbeat_b_window)
             b_point = b_window_max + window_start + heartbeat_start
 
-            b_points.at[idx, "b_point"] = b_point
+            '''
+            if not self.correct_outliers:
+                if b_point < data['r_peak_sample']:
+                    b_points['b_point'].iloc[idx] = np.NaN
+                    #warnings.warn(f"The detected B-point is located before the R-Peak at heartbeat {idx}!"
+                    #              f" The B-point was set to NaN.")
+                else:
+                    b_points['b_point'].iloc[idx] = b_point
+            else:
+                b_points['b_point'].iloc[idx] = b_point
+            '''
+            b_points['b_point'].iloc[idx] = b_point
 
         # inform user about missing B-points
         if len(heartbeats_no_c_b) > 0 or len(heartbeats_no_b) > 0:
@@ -140,12 +152,3 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
         self.points_ = b_points
         return self
-
-    @staticmethod
-    def get_c_points(signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
-
-        c_extractor = CPointExtraction_ScipyFindPeaks(window_c_correction=3, save_candidates=False)
-        c_extractor.extract(signal_clean=signal_clean, heartbeats=heartbeats, sampling_rate_hz=sampling_rate_hz)
-        c_points = c_extractor.points_
-
-        return c_points

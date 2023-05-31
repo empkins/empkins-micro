@@ -56,7 +56,6 @@ class BPointExtractionDrost(BaseExtraction):
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
 
         # get the c_point locations from the c_points dataframe and search for entries containing NaN
-        c_points = c_points['c_point']
         check_c_points = np.isnan(c_points.values.astype(float))
 
         # iterate over each heartbeat
@@ -69,7 +68,7 @@ class BPointExtractionDrost(BaseExtraction):
                 continue
             else:
                 # Get the C-Point location at the current heartbeat id
-                c_point = c_points[idx]
+                c_point = c_points['c_point'].iloc[idx]
 
             # Calculate the start position of the straight line (150 ms before the C-Point)
             line_start = c_point - int((150 / 1000) * sampling_rate_hz)
@@ -87,15 +86,19 @@ class BPointExtractionDrost(BaseExtraction):
             # to obtain the B-Point location
             b_point = distance.argmax() + line_start
 
+            '''
             if not self.correct_outliers:
                 if b_point < data['r_peak_sample']:
                     b_points['b_point'].iloc[idx] = np.NaN
-                    warnings.warn(f"The detected B-Point is located before the R-Peak at heartbeat {idx}!"
-                                  f" The index of the B-Point was set to NaN.")
+                    #warnings.warn(f"The detected B-point is located before the R-Peak at heartbeat {idx}!"
+                    #              f" The B-point was set to NaN.")
                 else:
                     b_points['b_point'].iloc[idx] = b_point
             else:
                 b_points['b_point'].iloc[idx] = b_point
+            '''
+
+            b_points['b_point'].iloc[idx] = b_point
 
         points = b_points
         self.points_ = points

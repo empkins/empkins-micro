@@ -42,6 +42,8 @@ class OutlierCorrectionInterpolation(BaseExtraction):
         # Perform the outlier correction until no more outliers are detected
         counter = 2
         while len(outliers) > 0:
+            if counter > 200:
+                break
             corrected_b_points = self.correct_linear(b_points, c_points, stationary_data, outliers,
                                                        stationary_data['baseline'])
             stationary_data = self.stationarize_data(corrected_b_points, c_points, sampling_rate_hz)
@@ -70,11 +72,11 @@ class OutlierCorrectionInterpolation(BaseExtraction):
 
     @staticmethod
     def detect_outliers(stationary_data: pd.DataFrame) -> pd.DataFrame:
-        median = np.median(stationary_data['statio_data'])
-        median_abs_dev = median_abs_deviation(stationary_data['statio_data'], axis=0, nan_policy='propagate')
+        median_time = np.median(stationary_data['statio_data'])
+        median_abs_dev_time = median_abs_deviation(stationary_data['statio_data'], axis=0, nan_policy='propagate')
         outliers = pd.DataFrame(index=stationary_data.index, columns=['outliers'])
         outliers['outliers'] = False
-        outliers.loc[(stationary_data['statio_data'] - median) > (3 * median_abs_dev), 'outliers'] = True
+        outliers.loc[(stationary_data['statio_data'] - median_time) > (3 * median_abs_dev_time), 'outliers'] = True
         return outliers[outliers['outliers'] == True]
 
     @staticmethod
@@ -83,9 +85,9 @@ class OutlierCorrectionInterpolation(BaseExtraction):
         data = statio_data['statio_data'].to_frame()
         # insert NaN at the heartbeat id of the outliers
         data.loc[outliers.index, 'statio_data'] = np.NaN
-        # interpolate the outlier positions using Linear_Interpolation
+        #print(outliers.index)
+        # interpolate the outlier positions using linear interpolation
         data_interpol = data['statio_data'].astype(float).interpolate()
-        print(data_interpol)
 
         corrected_b_points = b_points_uncorrected.copy()
         # Add the baseline back to the interpolated values

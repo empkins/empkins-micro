@@ -44,6 +44,8 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         # Perform the outlier correction until no more outliers are detected
         counter = 2
         while len(outliers) > 0:
+            if counter > 30:
+                break
             corrected_b_points = self.correct_outliers(b_points, c_points, stationary_data, outliers,
                                                        stationary_data['baseline'])
             stationary_data = self.stationarize_data(corrected_b_points, c_points, sampling_rate_hz)
@@ -85,16 +87,16 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         data.loc[outliers.index, 'statio_data'] = np.NaN
         input_endog = data['statio_data'].astype(float).interpolate()
         # Select order of the froward model
-        sel = ar_select_order(input_endog, 30, ic='aic')
-        order = sel.ar_lags[-1]
+        sel = ar_select_order(input_endog, maxlag=30, ic='aic')
+        order = sel.ar_lags
         # fit the forward model
         arima_mod = ARIMA(endog=input_endog, order=(order, 0, 0))
         arima_res = arima_mod.fit(method='burg')
         # reverse the input data to get the backward model
         reversed_input = input_endog[::-1]
         # Select order of the backward model
-        b_sel = ar_select_order(reversed_input, 30, ic='aic')
-        b_order = b_sel.ar_lags[-1]
+        b_sel = ar_select_order(reversed_input, maxlag=30, ic='aic')
+        b_order = b_sel.ar_lags
         # Fit the backward model
         b_arima_mod = ARIMA(endog=reversed_input, order=(b_order, 0, 0))
         b_arima_res = b_arima_mod.fit(method='burg')
