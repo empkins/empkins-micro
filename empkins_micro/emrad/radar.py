@@ -53,8 +53,8 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
     radar_beats = find_peaks(data_concat.predicted_beats, height=0.05, distance=0.3 * fs_radar)[0]
     radar_beats = pd.DataFrame(radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"])
 
-    radar_beats["R_Peak_Quality"] = np.ones(len(radar_beats))
-    radar_beats["R_Peak_Outlier"] = np.zeros(len(radar_beats))
+    radar_beats["R_Peak_Quality"] = np.ones(len(radar_beats))  # this does not make sense, but is required by biopsykit
+    radar_beats["R_Peak_Outlier"] = np.zeros(len(radar_beats))  # this does not make sense, but is required by biopsykit
     radar_beats.rename({"peak_idx": "R_Peak_Idx"}, axis=1, inplace=True)
 
     radar_beats["RR_Interval"] = np.ediff1d(radar_beats["R_Peak_Idx"], to_end=0) / fs_radar
