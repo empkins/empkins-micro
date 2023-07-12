@@ -85,3 +85,6 @@ MANIFEST
 
 # doit
 .doit.*
+
+# pyproject.toml
+pyproject.toml
