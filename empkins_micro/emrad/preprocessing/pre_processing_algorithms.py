@@ -4,8 +4,7 @@ from tpcp import Algorithm, Parameter, make_action_safe
 
 import pandas as pd
 import numpy as np
-from scipy.signal import butter, filtfilt, hilbert, decimate, gaussian
-from neurokit2 import ecg_process
+from scipy.signal import butter, filtfilt, decimate
 
 class ButterHighpassFilter(Algorithm):
     _action_methods = "filter"
@@ -128,35 +127,6 @@ class ButterBandpassFilter(Algorithm):
 
         return self
     
-class ComputeEnvelopeSignal(Algorithm):
-    _action_methods = "compute"
-
-    # Input Parameters
-    average_length: Parameter[int]
-
-    # Results
-    envelope_signal_: pd.Series
-
-    def __init__(
-        self,
-        average_length: int = 100
-    ):
-        self.average_length = average_length
-
-    @make_action_safe
-    def compute(self, radar_data: pd.Series):
-        """Compute the envelope of an underlying signal using same-length convolution with a normalized impulse train 
-
-        Args:
-            radar_data (pd.Series): rad (magnitude/power of complex radar signal usually already bandpass filtered to heart sound range (16-80Hz))
-
-        Returns:
-            pd.Series: envelope signal
-        """
-        self.envelope_signal_ = np.convolve(np.abs(hilbert(radar_data)).flatten(), np.ones(self.average_length)/self.average_length, mode='same')
-
-        return self
-    
 class ComputeDecimateSignal(Algorithm):
     _action_methods = "compute"
 
@@ -186,38 +156,3 @@ class ComputeDecimateSignal(Algorithm):
 
         return self
     
-class ComputeEcgPeakGaussians(Algorithm):
-    _action_methods = "compute"
-
-    # Input Parameters
-    method: Parameter[str]
-    gaussian_length: Parameter[int]
-    gaussian_std: Parameter[float]
-
-    # Results
-    peak_gaussians_: pd.Series
-
-    def __init__(
-        self,
-        gaussian_length: int = 400,
-        gaussian_std: float = 6
-    ):
-        self.gaussian_length = gaussian_length
-        self.gaussian_std = gaussian_std
-
-    @make_action_safe
-    def compute(self, ecg_signal: pd.Series, sampling_freq: float):
-        """Compute the target signal with gaussians positioned at the ecg's R-peaks
-
-        Args:
-            ecg_signal (pd.Series): ECG-signal being ground-truth, containing the peaks.
-            sampling_freq (float): Sampling frequency of the ECG signal.
-
-        Returns:
-            pd.Series: Signal with Gaussians located at the R-peaks of the ECG signal.
-        """
-        signal, info = ecg_process(ecg_signal, sampling_freq)
-  
-        self.peak_gaussians_ = np.convolve(signal["ECG_R_Peaks"], gaussian(self.gaussian_length, self.gaussian_std), mode='same')
-
-        return self
