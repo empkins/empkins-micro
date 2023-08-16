@@ -1,10 +1,8 @@
-from empkins_io.datasets.d03.micro_gapvii._dataset import MicroBaseDataset
-
 from tpcp import Algorithm, Parameter, make_action_safe
 
 import pandas as pd
-import numpy as np
 from scipy.signal import butter, filtfilt, decimate
+
 
 class ButterHighpassFilter(Algorithm):
     _action_methods = "filter"
@@ -17,9 +15,9 @@ class ButterHighpassFilter(Algorithm):
     filtered_signal_: pd.Series
 
     def __init__(
-        self,
-        high_pass_filter_cutoff_hz: float = 0.4,
-        high_pass_filter_order: int = 5
+            self,
+            high_pass_filter_cutoff_hz: float = 0.4,
+            high_pass_filter_order: int = 5
     ):
         self.high_pass_filter_cutoff_hz = high_pass_filter_cutoff_hz
         self.high_pass_filter_order = high_pass_filter_order
@@ -39,12 +37,13 @@ class ButterHighpassFilter(Algorithm):
 
         nyq = 0.5 * sample_frequency_hz
         normal_cutoff = self.high_pass_filter_cutoff_hz / nyq
-        b, a = butter(self.high_pass_filter_order, normal_cutoff, btype = "high", analog = False)
+        b, a = butter(N=self.high_pass_filter_order, Wn=normal_cutoff, btype="high", analog=False)
         res = filtfilt(b, a, radar, axis=0)
         self.filtered_signal_ = pd.Series(res)
-        
+
         return self
-    
+
+
 class ButterLowpassFilter(Algorithm):
     _action_methods = "filter"
 
@@ -56,9 +55,9 @@ class ButterLowpassFilter(Algorithm):
     filtered_signal_: pd.Series
 
     def __init__(
-        self,
-        low_pass_filter_cutoff_hz: float = 0.4,
-        low_pass_filter_order: int = 5
+            self,
+            low_pass_filter_cutoff_hz: float = 0.4,
+            low_pass_filter_order: int = 5
     ):
         self.low_pass_filter_cutoff_hz = low_pass_filter_cutoff_hz
         self.low_pass_filter_order = low_pass_filter_order
@@ -78,12 +77,13 @@ class ButterLowpassFilter(Algorithm):
 
         nyq = 0.5 * sample_frequency_hz
         normal_cutoff = self.low_pass_filter_cutoff_hz / nyq
-        b, a = butter(self.low_pass_filter_order, normal_cutoff, btype = "low", analog = False)
+        b, a = butter(self.low_pass_filter_order, normal_cutoff, btype="low", analog=False)
         res = filtfilt(b, a, radar, axis=0)
         self.filtered_signal_ = pd.Series(res)
 
         return self
-    
+
+
 class ButterBandpassFilter(Algorithm):
     _action_methods = "filter"
 
@@ -96,10 +96,10 @@ class ButterBandpassFilter(Algorithm):
     filtered_signal_: pd.Series
 
     def __init__(
-        self,
-        high_pass_filter_cutoff_hz: float = 80,
-        low_pass_filter_cutoff_hz: float = 15,
-        band_pass_filter_order: int = 5
+            self,
+            high_pass_filter_cutoff_hz: float = 80,
+            low_pass_filter_cutoff_hz: float = 15,
+            band_pass_filter_order: int = 5
     ):
         self.low_pass_filter_cutoff_hz = low_pass_filter_cutoff_hz
         self.high_pass_filter_cutoff_hz = high_pass_filter_cutoff_hz
@@ -121,12 +121,13 @@ class ButterBandpassFilter(Algorithm):
         nyq = 0.5 * sample_frequency_hz
         low = self.low_pass_filter_cutoff_hz / nyq
         high = self.high_pass_filter_cutoff_hz / nyq
-        b, a = butter(self.band_pass_filter_order, [low, high], btype='band', analog = False)
+        b, a = butter(self.band_pass_filter_order, [low, high], btype='band', analog=False)
         res = filtfilt(b, a, radar, axis=0)
         self.filtered_signal_ = pd.Series(res)
 
         return self
-    
+
+
 class ComputeDecimateSignal(Algorithm):
     _action_methods = "compute"
 
@@ -137,8 +138,8 @@ class ComputeDecimateSignal(Algorithm):
     downsampled_signal_: pd.Series
 
     def __init__(
-        self,
-        downsampling_factor: int = 20
+            self,
+            downsampling_factor: int = 20
     ):
         self.downsampling_factor = downsampling_factor
 
@@ -155,4 +156,3 @@ class ComputeDecimateSignal(Algorithm):
         self.downsampled_signal_ = decimate(high_freq_signal, self.downsampling_factor, axis=0)
 
         return self
-    
