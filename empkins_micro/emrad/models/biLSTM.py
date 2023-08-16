@@ -15,7 +15,6 @@ class BiLSTM(Algorithm):
 
     # INPUT PARAMETERS
     # 1. Model architecture
-    input_shape: tuple
     bi_lstm_units: OptimizableParameter[int]
     first_dropout_rate: OptimizableParameter[float]
     mono_lstm_units: OptimizableParameter[int]
@@ -30,11 +29,10 @@ class BiLSTM(Algorithm):
     _model: Optional[keras.Sequential]
 
     # Results
-    predictions_: pd.Series
+    predictions_: np.ndarray
 
     def __init__(
         self,
-        input_shape,
         bi_lstm_units: int = 64,
         first_dropout_rate: float = 0.6,
         mono_lstm_units: int = 128,
@@ -45,7 +43,6 @@ class BiLSTM(Algorithm):
         batch_size: int = 128,
         _model = None
     ):
-        self.input_shape = input_shape
         self.bi_lstm_units = bi_lstm_units
         self.first_dropout_rate = first_dropout_rate
         self.mono_lstm_units = mono_lstm_units
@@ -69,11 +66,11 @@ class BiLSTM(Algorithm):
         """
 
         if self._model==None:
-            self._create_model()
+            self._create_model(training_data.shape[1], training_data.shape[2])
 
-        assert training_data.shape[1] == self.input_shape[0], f"You are trying to train the model with input of the wrong dimensions. The required input shape is {self.input_shape} and your provided training_data has shape {training_data.shape}!"
-        assert training_data.shape[2] == self.input_shape[1], f"You are trying to train the model with input of the wrong dimensions. The required input shape is {self.input_shape} and your provided training_data has shape {training_data.shape}!"
-
+        assert self._model.layers[0].input_shape[1] == training_data.shape[1], f"Your training data has dimension {training_data.shape} while the model has input shape {self._model.layers[0].input_shape}!"
+        assert self._model.layers[0].input_shape[2] == training_data.shape[2], f"Your training data has dimension {training_data.shape} while the model has input shape {self._model.layers[0].input_shape}!"
+        
         self._model.fit(training_data, labels,
           epochs=self.num_epochs, 
           batch_size=self.batch_size,
@@ -83,7 +80,7 @@ class BiLSTM(Algorithm):
         return self
     
 
-    @make_action_safe
+    #@make_action_safe
     def predict(self, input_data: np.ndarray):
         """Accepts a single data point and returns the prediction of the trained network for it
 
@@ -96,17 +93,19 @@ class BiLSTM(Algorithm):
         
         assert self._model != None, "Before making a prediction you will have to train a model using the self.self_optimize method of the same instance!"
 
+        #model_copy = keras.models.clone_model(self._model)
+
         self.predictions_ = np.squeeze(self._model.predict(input_data))
         
         return self
     
     
-    def _create_model(self):
+    def _create_model(self, timesteps_per_sample: int, num_features: int):
         """Helper function generating a new instance of the BiLSTM model
         """
         self._model = keras.Sequential(
             [
-                layers.Input(shape=self.input_shape),
+                layers.Input(shape= (timesteps_per_sample, num_features)),
                 tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(self.bi_lstm_units,return_sequences=True)),
                 tf.keras.layers.Dropout(self.first_dropout_rate),
                 tf.keras.layers.LSTM(self.mono_lstm_units),
