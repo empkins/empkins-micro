@@ -88,5 +88,3 @@ MANIFEST
 
 # pyproject.toml
 pyproject.toml
-empkins_micro/emrad/feature_extraction/input_array_five_sitting_vps.npy
-empkins_micro/emrad/label_generation/label_array_five_sitting_vps.npy
