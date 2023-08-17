@@ -11,6 +11,12 @@ from tensorflow import keras
 from keras import layers
 
 class BiLSTM(Algorithm):
+    """Algorithm to train a bi-directional LSTM Network with layers [biLSTM, Dropout, monoLSTM, Dropout, Dense] and also make predictions after training.
+
+    Inheriting from:
+        tpcp.Algorithm: Base-class for tpcp algorithm objects.
+    """
+    
     _action_methods = "predict"
 
     # INPUT PARAMETERS
