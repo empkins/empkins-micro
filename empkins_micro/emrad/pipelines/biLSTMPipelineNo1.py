@@ -17,7 +17,7 @@
 # 4. Label Generation: Find R-Peaks in reference ECG (100Hz) and convolve resulting spike train with Gaussians of fixed length
 
 
-
+from typing import Sequence
 from sklearn.model_selection import GroupKFold, ParameterGrid
 from tpcp import Dataset, Algorithm, OptimizableParameter, OptimizablePipeline, cf
 from tpcp.optimize import GridSearch, GridSearchCV
@@ -58,7 +58,7 @@ class PreProcessor(Algorithm):
 
     @make_action_safe
     def pre_process(self, raw_radar: pd.DataFrame):
-        """Preprocess radar data that has been synced and sr aligned (to 1000Hz) already
+        """Preprocess radar data of one antenna that has been synced and sr aligned (to 1000Hz) already
 
         Args:
             raw_radar (pd.DataFrame): synced and sr aligned radar of one antenna
@@ -95,7 +95,7 @@ class PreProcessor(Algorithm):
     
     
 class InputAndLabelGenerator(Algorithm):
-    """Class generating the Input and Label matrices for the BiLSTM model for sitting participants
+    """Class generating the Input and Label matrices for the BiLSTM model.
 
     Results: 
         self.input_data
@@ -103,6 +103,10 @@ class InputAndLabelGenerator(Algorithm):
     """
     
     _action_methods = ("generate_training_input_sitting", "generate_training_labels_sitting")
+
+    # Tell the label generator from which antennae to generate input
+    #TODO: Differentiation betweeen sitting and standing because of different antennae available
+    used_radar_antennae: Sequence[int]
 
     # PreProcessing
     pre_processor: PreProcessor
@@ -121,12 +125,14 @@ class InputAndLabelGenerator(Algorithm):
 
     def __init__(
         self,
+        used_radar_antennae: Sequence[int],
         pre_processor: PreProcessor = cf(PreProcessor()),
         label_decimation_algo: ComputeDecimateSignal = cf(ComputeDecimateSignal(downsampling_factor=10)),
         peak_gaussian_algo: ComputeEcgPeakGaussians = cf(ComputeEcgPeakGaussians()),
         timesteps: int = 400,
         step_size: int = 20
     ):
+        self.used_radar_antennae = used_radar_antennae
         self.pre_processor = pre_processor
         self.label_decimation_algo = label_decimation_algo
         self.peak_gaussian_algo = peak_gaussian_algo
@@ -153,17 +159,22 @@ class InputAndLabelGenerator(Algorithm):
             # fetch the radar data
             data_dict = group.emrad_biopac_synced_and_sr_aligned
 
+            envelope_signals = []
+
             # preprocess the radar data
-            heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).processed_radar_
-            heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).processed_radar_
+            for i in range(len(self.used_radar_antennae)):
+                filename = 'rad' + str(self.used_radar_antennae[i]) + '_aligned__resampled_'
+                envelope_signals.append(pre_processor_clone.pre_process(data_dict[filename]).processed_radar_)
+            # heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).processed_radar_
+            # heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).processed_radar_
 
             # generate input samples
-            for i in range(0, len(heart_sound_band_envelope_rad1) - self.timesteps, self.step_size):
-                rad1 = heart_sound_band_envelope_rad1[i:(i + self.timesteps)]
-                rad2 = heart_sound_band_envelope_rad2[i:(i + self.timesteps)]
-                rad1 = np.expand_dims(rad1, axis=(1))
-                rad2 = np.expand_dims(rad2, axis=(1))
-                combined_rad = np.concatenate((rad1, rad2), axis=1)
+            for i in range(0, len(envelope_signals[0]) - self.timesteps, self.step_size):
+                combined_rad = []
+                for i in range(len(envelope_signals)):
+                    rad_envelope = envelope_signals[i][i:(i + self.timesteps)]
+                    rad_envelope = np.expand_dims(rad_envelope, axis=(1))
+                    combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
                 res.append(combined_rad)
         
         # safe input samples
@@ -221,7 +232,7 @@ class BiLstmPipeline(OptimizablePipeline):
 
     def __init__(
         self,
-        feature_extractor: InputAndLabelGenerator = cf(InputAndLabelGenerator()),
+        feature_extractor: InputAndLabelGenerator = cf(InputAndLabelGenerator(used_radar_antennae=[1])),
         lstm: BiLSTM = cf(BiLSTM())
     ):
         self.feature_extractor = feature_extractor
@@ -248,21 +259,7 @@ class BiLstmPipeline(OptimizablePipeline):
 
         return self
 
-# TODO: Implement one scorer per use case
-# Use cases are:
-# 1. Good heart rate extimation over the long run
-# 2. Good accuracy important for HRV computation
 
-# def scoring(pipeline, datapoint):
-#     pipeline.run(datapoint)
-
-#     result = pipeline.result_
-
-#     labels = datapoint.labels
-
-#     erorres = f1_score(results, labels)
-
-#     return {"f1_score": error, "per_rpeak": CustomAgg((results, labels)), "raw": NoAgg(results)}
 
 
 
