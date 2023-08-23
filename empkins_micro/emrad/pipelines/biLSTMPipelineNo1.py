@@ -171,8 +171,8 @@ class InputAndLabelGenerator(Algorithm):
             # generate input samples
             for i in range(0, len(envelope_signals[0]) - self.timesteps, self.step_size):
                 combined_rad = []
-                for i in range(len(envelope_signals)):
-                    rad_envelope = envelope_signals[i][i:(i + self.timesteps)]
+                for j in range(len(envelope_signals)):
+                    rad_envelope = envelope_signals[j][i:(i + self.timesteps)]
                     rad_envelope = np.expand_dims(rad_envelope, axis=(1))
                     combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
                 res.append(combined_rad)
