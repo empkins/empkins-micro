@@ -169,31 +169,39 @@ class InputAndLabelGenerator(Algorithm):
             data_dict = group.emrad_biopac_synced_and_sr_aligned
 
             envelope_signals = []
+            rad_i_signals = []
+            rad_q_signals = []
 
             # preprocess the radar data
             for i in range(len(self.used_radar_antennae)):
                 filename = 'rad' + str(self.used_radar_antennae[i]) + '_aligned__resampled_'
                 envelope_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_envelope_)
+                rad_i_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_i_)
+                rad_q_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_q_)
             # heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).radar_envelope_
             # heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).radar_envelope_
 
             # generate input samples
             for i in range(0, len(envelope_signals[0]) - self.timesteps, self.step_size):
                 combined_rad = []
+                # loop over sensors
                 for j in range(len(envelope_signals)):
+                    # get windoww
                     rad_envelope = envelope_signals[j][i:(i + self.timesteps)]
-                    # normalize the current window
+                    radar_i = rad_i_signals[j][i:(i + self.timesteps)]
+                    radar_q = rad_q_signals[j][i:(i + self.timesteps)]
+
+                    # normalize the current window and append to feature array
                     rad_envelope = (rad_envelope - np.min(rad_envelope)) / (np.max(rad_envelope) - np.min(rad_envelope))
                     rad_envelope = np.expand_dims(rad_envelope, axis=(1))
                     combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
-                radar_i = pre_processor_clone.radar_i_[i:(i + self.timesteps)]
-                radar_i = (radar_i - np.min(radar_i)) / (np.max(radar_i) - np.min(radar_i))
-                radar_i = np.expand_dims(radar_i, axis=(1))
-                radar_q = pre_processor_clone.radar_q_[i:(i + self.timesteps)]
-                radar_q = (radar_q - np.min(radar_q)) / (np.max(radar_q) - np.min(radar_q))
-                radar_q = np.expand_dims(radar_q, axis=(1))
-                combined_rad = np.concatenate((combined_rad, radar_i), axis=1)
-                combined_rad = np.concatenate((combined_rad, radar_q), axis=1)
+                    radar_i = (radar_i - np.min(radar_i)) / (np.max(radar_i) - np.min(radar_i))
+                    radar_i = np.expand_dims(radar_i, axis=(1))
+                    radar_q = (radar_q - np.min(radar_q)) / (np.max(radar_q) - np.min(radar_q))
+                    radar_q = np.expand_dims(radar_q, axis=(1))
+                    combined_rad = np.concatenate((combined_rad, radar_i), axis=1)
+                    combined_rad = np.concatenate((combined_rad, radar_q), axis=1)
+
                 res.append(combined_rad)
         
         # safe input samples
