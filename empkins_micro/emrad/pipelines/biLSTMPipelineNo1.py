@@ -30,7 +30,7 @@ from empkins_micro.emrad.label_generation.label_generation_algorithms import *
 class PreProcessor(Algorithm):
     """Class preprocessing the radar to arrive at the heart sound envelope
 
-    Result: self.processed_radar_
+    Result: self.radar_envelope_
     """
     
     _action_methods = "pre_process"
@@ -42,7 +42,10 @@ class PreProcessor(Algorithm):
     decimation_algo: ComputeDecimateSignal
 
     # Results
-    processed_radar_: pd.Series
+    radar_envelope_: pd.Series
+    # radar_angle_: pd.Series
+    radar_i_: pd.Series
+    radar_q_: pd.Series
 
     def __init__(
         self,
@@ -76,6 +79,11 @@ class PreProcessor(Algorithm):
         highpassed_radi = highpass_filter_clone.filter(raw_radar['I'], sample_frequency_hz=1000)
         highpassed_radq = highpass_filter_clone.filter(raw_radar['Q'], sample_frequency_hz=1000)
 
+        self.radar_i_ = decimation_algo_clone.compute(highpassed_radi.filtered_signal_).downsampled_signal_
+        self.radar_q_ = decimation_algo_clone.compute(highpassed_radq.filtered_signal_).downsampled_signal_
+
+        # self.radar_angle_ = np.diff(np.unwrap(np.arctan2(highpassed_radi.filtered_signal_,highpassed_radq.filtered_signal_)),axis=0)
+
         # Compute the radar power from I and Q
         rad_power = np.sqrt(np.square(highpassed_radi.filtered_signal_)+np.square(highpassed_radq.filtered_signal_))
 
@@ -86,10 +94,12 @@ class PreProcessor(Algorithm):
         # Downsample to 100 Hz
         heart_sound_radar_envelope = decimation_algo_clone.compute(heart_sound_radar_envelope.envelope_signal_).downsampled_signal_
 
-        # Normalize and return the envelope
-        mean = heart_sound_radar_envelope.mean(axis=0)
-        std = heart_sound_radar_envelope.std(axis=0)
-        self.processed_radar_ = (heart_sound_radar_envelope - mean) / std
+        self.radar_envelope_ = heart_sound_radar_envelope
+
+        # # Normalize and return the envelope
+        # mean = heart_sound_radar_envelope.mean(axis=0)
+        # std = heart_sound_radar_envelope.std(axis=0)
+        # self.radar_envelope_ = (heart_sound_radar_envelope - mean) / std
 
         return self
     
@@ -105,7 +115,6 @@ class InputAndLabelGenerator(Algorithm):
     _action_methods = ("generate_training_input_sitting", "generate_training_labels_sitting")
 
     # Tell the label generator from which antennae to generate input
-    #TODO: Differentiation betweeen sitting and standing because of different antennae available
     used_radar_antennae: Sequence[int]
 
     # PreProcessing
@@ -164,17 +173,27 @@ class InputAndLabelGenerator(Algorithm):
             # preprocess the radar data
             for i in range(len(self.used_radar_antennae)):
                 filename = 'rad' + str(self.used_radar_antennae[i]) + '_aligned__resampled_'
-                envelope_signals.append(pre_processor_clone.pre_process(data_dict[filename]).processed_radar_)
-            # heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).processed_radar_
-            # heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).processed_radar_
+                envelope_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_envelope_)
+            # heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).radar_envelope_
+            # heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).radar_envelope_
 
             # generate input samples
             for i in range(0, len(envelope_signals[0]) - self.timesteps, self.step_size):
                 combined_rad = []
                 for j in range(len(envelope_signals)):
                     rad_envelope = envelope_signals[j][i:(i + self.timesteps)]
+                    # normalize the current window
+                    rad_envelope = (rad_envelope - np.min(rad_envelope)) / (np.max(rad_envelope) - np.min(rad_envelope))
                     rad_envelope = np.expand_dims(rad_envelope, axis=(1))
                     combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
+                radar_i = pre_processor_clone.radar_i_[i:(i + self.timesteps)]
+                radar_i = (radar_i - np.min(radar_i)) / (np.max(radar_i) - np.min(radar_i))
+                radar_i = np.expand_dims(radar_i, axis=(1))
+                radar_q = pre_processor_clone.radar_q_[i:(i + self.timesteps)]
+                radar_q = (radar_q - np.min(radar_q)) / (np.max(radar_q) - np.min(radar_q))
+                radar_q = np.expand_dims(radar_q, axis=(1))
+                combined_rad = np.concatenate((combined_rad, radar_i), axis=1)
+                combined_rad = np.concatenate((combined_rad, radar_q), axis=1)
                 res.append(combined_rad)
         
         # safe input samples
