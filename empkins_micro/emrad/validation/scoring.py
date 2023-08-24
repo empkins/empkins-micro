@@ -15,10 +15,11 @@ def biLSTMPipelineScoring(pipeline: BiLstmPipeline, datapoint: MicroBaseDataset)
 
     pipeline.run(datapoint)
 
-    # Prediction and labels get flatten to one dimension
-    result = pipeline.result_.flatten()
+    labels = pipeline.feature_extractor.generate_training_labels_sitting(datapoint).input_labels_
 
-    labels = pipeline.feature_extractor.generate_training_labels_sitting(datapoint).input_labels_.flatten()
+    # normalize predictions and labels between 0 and 1
+    result = ((pipeline.result_ - np.min(pipeline.result_, axis=1)[:,None]) / (np.max(pipeline.result_, axis=1)[:,None] - np.min(pipeline.result_, axis=1)[:,None]))[::20,:].flatten()
+    labels = ((labels - np.min(labels, axis=1)[:,None]) / (np.max(labels, axis=1)[:,None] - np.min(labels, axis=1)[:,None]))[::20,:].flatten()
 
     # Compute beat-to-beat heart rates
     heart_rate_prediction = PairwiseHeartRate().compute(result).heart_rate_

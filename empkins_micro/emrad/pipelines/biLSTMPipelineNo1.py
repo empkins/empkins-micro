@@ -43,7 +43,7 @@ class PreProcessor(Algorithm):
 
     # Results
     radar_envelope_: pd.Series
-    # radar_angle_: pd.Series
+    radar_angle_: pd.Series
     radar_i_: pd.Series
     radar_q_: pd.Series
 
@@ -82,7 +82,8 @@ class PreProcessor(Algorithm):
         self.radar_i_ = decimation_algo_clone.compute(highpassed_radi.filtered_signal_).downsampled_signal_
         self.radar_q_ = decimation_algo_clone.compute(highpassed_radq.filtered_signal_).downsampled_signal_
 
-        # self.radar_angle_ = np.diff(np.unwrap(np.arctan2(highpassed_radi.filtered_signal_,highpassed_radq.filtered_signal_)),axis=0)
+        angle = np.diff(np.unwrap(np.arctan2(highpassed_radi.filtered_signal_,highpassed_radq.filtered_signal_)),axis=0)
+        self.radar_angle_ = decimation_algo_clone.compute(angle).downsampled_signal_
 
         # Compute the radar power from I and Q
         rad_power = np.sqrt(np.square(highpassed_radi.filtered_signal_)+np.square(highpassed_radq.filtered_signal_))
@@ -171,13 +172,16 @@ class InputAndLabelGenerator(Algorithm):
             envelope_signals = []
             rad_i_signals = []
             rad_q_signals = []
+            rad_angels = []
 
             # preprocess the radar data
             for i in range(len(self.used_radar_antennae)):
                 filename = 'rad' + str(self.used_radar_antennae[i]) + '_aligned__resampled_'
-                envelope_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_envelope_)
-                rad_i_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_i_)
-                rad_q_signals.append(pre_processor_clone.pre_process(data_dict[filename]).radar_q_)
+                processed_signal = pre_processor_clone.pre_process(data_dict[filename])
+                envelope_signals.append(processed_signal.radar_envelope_)
+                rad_i_signals.append(processed_signal.radar_i_)
+                rad_q_signals.append(processed_signal.radar_q_)
+                rad_angels.append(processed_signal.radar_angle_)
             # heart_sound_band_envelope_rad1 = pre_processor_clone.pre_process(data_dict['rad1_aligned__resampled_']).radar_envelope_
             # heart_sound_band_envelope_rad2 = pre_processor_clone.pre_process(data_dict['rad2_aligned__resampled_']).radar_envelope_
 
@@ -190,17 +194,21 @@ class InputAndLabelGenerator(Algorithm):
                     rad_envelope = envelope_signals[j][i:(i + self.timesteps)]
                     radar_i = rad_i_signals[j][i:(i + self.timesteps)]
                     radar_q = rad_q_signals[j][i:(i + self.timesteps)]
+                    angle = rad_angels[j][i:(i + self.timesteps)]
 
                     # normalize the current window and append to feature array
                     rad_envelope = (rad_envelope - np.min(rad_envelope)) / (np.max(rad_envelope) - np.min(rad_envelope))
                     rad_envelope = np.expand_dims(rad_envelope, axis=(1))
-                    combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
                     radar_i = (radar_i - np.min(radar_i)) / (np.max(radar_i) - np.min(radar_i))
                     radar_i = np.expand_dims(radar_i, axis=(1))
                     radar_q = (radar_q - np.min(radar_q)) / (np.max(radar_q) - np.min(radar_q))
                     radar_q = np.expand_dims(radar_q, axis=(1))
+                    angle = (angle - np.min(angle)) / (np.max(angle) - np.min(angle))
+                    angle = np.expand_dims(angle, axis=(1))
+                    combined_rad = rad_envelope if len(combined_rad)==0 else np.concatenate((combined_rad, rad_envelope), axis=1)
                     combined_rad = np.concatenate((combined_rad, radar_i), axis=1)
                     combined_rad = np.concatenate((combined_rad, radar_q), axis=1)
+                    combined_rad = np.concatenate((combined_rad, angle), axis=1)
 
                 res.append(combined_rad)
         
