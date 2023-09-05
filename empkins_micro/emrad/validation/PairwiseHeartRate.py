@@ -45,7 +45,7 @@ class PairwiseHeartRate(Algorithm):
 
         minimal_distance_between_peaks =  int(1 / (self.max_heart_rate / 60) * self.sampling_rate)
         
-        peaks, _ = find_peaks(input_data, distance=minimal_distance_between_peaks, height=0.2)
+        peaks, _ = find_peaks(input_data, distance=minimal_distance_between_peaks, prominence=0.15)
 
         sample_diffs_between_peaks = np.diff(peaks)
 
