@@ -18,9 +18,7 @@
 
 
 from typing import Sequence
-from sklearn.model_selection import GroupKFold, ParameterGrid
 from tpcp import Dataset, Algorithm, OptimizableParameter, OptimizablePipeline, cf
-from tpcp.optimize import GridSearch, GridSearchCV
 
 from empkins_micro.emrad.models.biLSTM import *
 from empkins_micro.emrad.preprocessing.pre_processing_algorithms import *

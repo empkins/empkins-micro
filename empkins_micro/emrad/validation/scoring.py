@@ -1,4 +1,5 @@
 from empkins_micro.emrad.validation.PairwiseHeartRate import PairwiseHeartRate
+from empkins_micro.emrad.validation.RPeakF1Score import RPeakF1Score
 from empkins_io.datasets.d03.micro_gapvii._dataset import MicroBaseDataset
 from empkins_micro.emrad.pipelines.biLSTMPipelineNo1 import BiLstmPipeline
 
@@ -21,6 +22,8 @@ def biLSTMPipelineScoring(pipeline: BiLstmPipeline, datapoint: MicroBaseDataset)
     result = ((pipeline.result_ - np.min(pipeline.result_, axis=1)[:,None]) / (np.max(pipeline.result_, axis=1)[:,None] - np.min(pipeline.result_, axis=1)[:,None]))[::20,:].flatten()
     labels = ((labels - np.min(labels, axis=1)[:,None]) / (np.max(labels, axis=1)[:,None] - np.min(labels, axis=1)[:,None]))[::20,:].flatten()
 
+    f1_score = RPeakF1Score(max_deviation_ms=100).compute(predicted_r_peak_signal=result, ground_truth_r_peak_signal=labels).f1_score_
+
     # Compute beat-to-beat heart rates
     heart_rate_prediction = PairwiseHeartRate().compute(result).heart_rate_
     heart_rate_ground_truth = PairwiseHeartRate().compute(labels).heart_rate_
@@ -39,4 +42,4 @@ def biLSTMPipelineScoring(pipeline: BiLstmPipeline, datapoint: MicroBaseDataset)
     mean_instantaneous_abs_hr_diff = instantaneous_abs_hr_diff.mean()
 
     # Scoring results
-    return {"abs_hr_error": absolute_hr_error, "mean_instantaneous_error": mean_instantaneous_abs_hr_diff}
+    return {"abs_hr_error": absolute_hr_error, "mean_instantaneous_error": mean_instantaneous_abs_hr_diff, "f1_score": f1_score}
