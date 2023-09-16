@@ -21,7 +21,7 @@ class RPeakF1Score(Algorithm):
 
     def __init__(
         self,
-        max_deviation_ms: int = 50,
+        max_deviation_ms: int = 100,
         max_heart_rate: int = 180,
         sampling_rate: float = 100
     ):
@@ -64,7 +64,8 @@ class RPeakF1Score(Algorithm):
                 if current_distance < max_deviation_samples:
 
                     true_positives += 1
-                    break
+
+                break
             
             next_distance =  abs(gt_peaks[next_gt] - pred_peaks[next_pred + 1])
 
@@ -76,10 +77,7 @@ class RPeakF1Score(Algorithm):
 
                 if next_pred + 1 > len(pred_peaks) - 1:
 
-                    if current_distance < max_deviation_samples:
-
-                        true_positives += 1
-                        break
+                    break
                 
                 next_distance = abs(gt_peaks[next_gt] - pred_peaks[next_pred + 1])
             
