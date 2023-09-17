@@ -47,6 +47,11 @@ class PairwiseHeartRate(Algorithm):
         
         peaks, _ = find_peaks(input_data, distance=minimal_distance_between_peaks, prominence=0.15)
 
+        if len(peaks)==0:
+            print("Length of pred peaks (in pairwise heart rate function) is zero")
+            self.heart_rate_ = np.zeros((int(input_data.shape[0] / self.sampling_rate),))
+            return self
+
         print(f"Length of peaks in Pairwise Heart Rate function: {len(peaks)}")
 
         sample_diffs_between_peaks = np.diff(peaks)
