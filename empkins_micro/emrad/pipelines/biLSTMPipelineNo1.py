@@ -211,7 +211,7 @@ class InputAndLabelGenerator(Algorithm):
                 res.append(combined_rad)
         
         # safe input samples
-        self.input_data_ = np.array(res)
+        self.input_data_ = np.nan_to_num(np.array(res), posinf=0, neginf=0)
         return self
     
     @make_action_safe
@@ -251,7 +251,7 @@ class InputAndLabelGenerator(Algorithm):
                 res.append(next_sample)
 
         # safe labels
-        self.input_labels_ = np.array(res)
+        self.input_labels_ = np.nan_to_num(np.array(res), posinf=0, neginf=0)
         return self
 
 

@@ -52,8 +52,6 @@ class PairwiseHeartRate(Algorithm):
             self.heart_rate_ = np.zeros((int(input_data.shape[0] / self.sampling_rate),))
             return self
 
-        print(f"Length of peaks in Pairwise Heart Rate function: {len(peaks)}")
-
         sample_diffs_between_peaks = np.diff(peaks)
 
         #convert sample diff to time diff
