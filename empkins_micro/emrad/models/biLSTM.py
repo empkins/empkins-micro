@@ -25,7 +25,6 @@ class BiLSTM(Algorithm):
     first_dropout_rate: OptimizableParameter[float]
     mono_lstm_units: OptimizableParameter[int]
     second_dropout_rate: OptimizableParameter[float]
-    dense_layer_units: OptimizableParameter[int]
     # 2. Hyperparamters
     learning_rate:  OptimizableParameter[float]
     num_epochs: OptimizableParameter[int]
@@ -43,7 +42,6 @@ class BiLSTM(Algorithm):
         first_dropout_rate: float = 0.6,
         mono_lstm_units: int = 128,
         second_dropout_rate: float = 0.6,
-        dense_layer_units: int = 400,
         learning_rate:  float = 0.001,
         num_epochs: int = 12,
         batch_size: int = 128,
@@ -53,7 +51,6 @@ class BiLSTM(Algorithm):
         self.first_dropout_rate = first_dropout_rate
         self.mono_lstm_units = mono_lstm_units
         self.second_dropout_rate = second_dropout_rate
-        self.dense_layer_units = dense_layer_units
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
         self.batch_size = batch_size
@@ -116,7 +113,7 @@ class BiLSTM(Algorithm):
                 tf.keras.layers.Dropout(self.first_dropout_rate),
                 tf.keras.layers.LSTM(self.mono_lstm_units),
                 tf.keras.layers.Dropout(self.second_dropout_rate),
-                tf.keras.layers.Dense(self.dense_layer_units)
+                tf.keras.layers.Dense(timesteps_per_sample)
             ]
         )
         self._model.compile(optimizer=keras.optimizers.Adam(self.learning_rate), loss="mse")
