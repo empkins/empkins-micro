@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import parselmouth
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
@@ -25,6 +24,12 @@ def _segment_gne(com_speech_sort, gne_all_frames, audio_file):
     """
     calculating gne for each voice segment
     """
+    try:
+        import parselmouth
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'parselmouth' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     snd = parselmouth.Sound(str(audio_file))
     pitch = snd.to_pitch(time_step=0.001)
 

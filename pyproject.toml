@@ -7,8 +7,8 @@ authors = ["Robert Richer <robert.richer@fau.de>"]
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 biopsykit = {git="https://github.com/mad-lab-fau/BioPsyKit.git", branch="main", extras=["jupyter"]}
-empkins-io = {git="https://github.com/empkins/empkins-io.git", branch="main"}
-numpy = ">=1.19,<1.24"
+empkins-io = {path="../empkins-io", develop=true}
+numpy = "^1.24.3"
 
 "pyannote.audio" = {version = "^2.1.1", optional = true}
 torch = {version = "<2", optional = true}
@@ -26,8 +26,12 @@ contextlib2 = {version = "^21.6.0", optional = true}
 collection = {version = "^0.1.6", optional = true}
 >>>>>>> d59aa91c7aac2959708914e336800943f11ab507
 
+tensorflow-macos = {version = "2.10.0", optional = true, platform="darwin"}
+pywavelets = {version = "^1.4.1", optional = true}
+
 [tool.poetry.extras]
 audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub", "wave", "contextlib2", "collection", "torch"]
+radar = ["tensorflow-macos", "pywavelets"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

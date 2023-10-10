@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import parselmouth
 
 from empkins_micro.feature_extraction.digital_biomarkers.acoustic.helper import get_length
 
@@ -13,6 +12,12 @@ def _audio_shimmer(sound):
     Returns:
         (list) list of shimmers for each voice frame
     """
+    try:
+        import parselmouth
+    except ModuleNotFoundError as e:
+        raise ModuleNotFoundError("Module 'parselmouth' not found. Please install it manually or "
+                                  "install 'empkins-micro' with 'audio' extras via "
+                                  "'poetry install empkins_micro -E audio'") from e
     pointProcess = parselmouth.praat.call(sound, "To PointProcess (periodic, cc)...", 80, 500)
     shimmer = parselmouth.praat.call([sound, pointProcess], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6)
     return shimmer
