@@ -24,7 +24,7 @@ pywavelets = {version = "^1.4.1", optional = true}
 
 [tool.poetry.extras]
 audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub", "wave", "contextlib2", "collection", "torch"]
-radar = ["tensorflow-macos", "systole", "pywavelets"]
+radar = ["tensorflow-macos", "pywavelets"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
