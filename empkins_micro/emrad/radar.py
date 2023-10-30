@@ -50,7 +50,7 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
     else:
         data_concat = pd.DataFrame(predicted_beats)
 
-    radar_beats = find_peaks(data_concat.predicted_beats, height=0.05, distance=0.3 * fs_radar)[0]
+    radar_beats = find_peaks(data_concat.predicted_beats, height=0.2, distance=0.3 * fs_radar)[0]
     radar_beats = pd.DataFrame(radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"])
 
     radar_beats["R_Peak_Quality"] = np.ones(len(radar_beats))  # this does not make sense, but is required by biopsykit
@@ -205,15 +205,20 @@ class Processing:
         )
 
         self.beatpeaks = np.array(np.around(self.beatpeaks / 2))
-        temppeaks = input_conversion(
-            self.beatpeaks.astype(int), input_type="peaks_idx", output_type="peaks"
-        )
-        corrpeaks = correct_peaks(
-            temppeaks, input_type="peaks", missed_correction=False, extra_correction=False
-        )
-        temp = np.where(corrpeaks["clean_peaks"])[0] * 2
-        # temp = systole.utils.input_conversion(corrpeaks,input_type='peaks',output_type='peaks_idx')*2
-        self.beatpeaks = temp
+
+        # if self.beatpeaks is empty list write empty np array into self.beatpeaks
+        if not self.beatpeaks.any():
+            self.beatpeaks = np.array([])
+        else:
+            temppeaks = input_conversion(
+                self.beatpeaks.astype(int), input_type="peaks_idx", output_type="peaks"
+            )
+            corrpeaks = correct_peaks(
+                temppeaks, input_type="peaks", missed_correction=False, extra_correction=False
+            )
+            temp = np.where(corrpeaks["clean_peaks"])[0] * 2
+            # temp = systole.utils.input_conversion(corrpeaks,input_type='peaks',output_type='peaks_idx')*2
+            self.beatpeaks = temp
 
     def setRadarSamples(self, samples):
 
