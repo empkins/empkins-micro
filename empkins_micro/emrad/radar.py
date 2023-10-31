@@ -6,11 +6,11 @@ Created on Sun Jun 12 16:04:08 2022
 """
 from pathlib import Path
 
+import biopsykit as bp
 import numpy as np
 import pandas as pd
 import scipy.signal
 import tensorflow as tf
-import biopsykit as bp
 from scipy.signal import find_peaks
 
 from empkins_micro.emrad.utils import input_conversion, correct_peaks
@@ -24,8 +24,9 @@ Minimumperiod = 60 / MAXBPM
 DETECTIONTHRESHOLD = 0.05
 
 
-def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> bp.utils.datatype_helper.RPeakDataFrame:
-
+def get_rpeaks(
+    radar_data: pd.DataFrame, fs_radar: float, window_size: int
+) -> bp.utils.datatype_helper.RPeakDataFrame:
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
@@ -33,9 +34,10 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
     processing = Processing(FS=fs_radar, window_size=window_size)
 
     for wind_ctr in range(num_windows):
-
         start_sample_radar = round(wind_ctr * window_size * fs_radar)
-        end_sample_radar = min(start_sample_radar + round(fs_radar * window_size), len(radar_data))
+        end_sample_radar = min(
+            start_sample_radar + round(fs_radar * window_size), len(radar_data)
+        )
 
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
 
@@ -50,21 +52,31 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
     else:
         data_concat = pd.DataFrame(predicted_beats)
 
-    radar_beats = find_peaks(data_concat.predicted_beats, height=0.05, distance=0.3 * fs_radar)[0]
-    radar_beats = pd.DataFrame(radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"])
+    radar_beats = find_peaks(
+        data_concat.predicted_beats, height=0.05, distance=0.3 * fs_radar
+    )[0]
+    radar_beats = pd.DataFrame(
+        radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"]
+    )
 
     radar_beats["R_Peak_Quality"] = np.ones(len(radar_beats))
     radar_beats["R_Peak_Outlier"] = np.zeros(len(radar_beats))
     radar_beats.rename({"peak_idx": "R_Peak_Idx"}, axis=1, inplace=True)
 
-    radar_beats["RR_Interval"] = np.ediff1d(radar_beats["R_Peak_Idx"], to_end=0) / fs_radar
+    radar_beats["RR_Interval"] = (
+        np.ediff1d(radar_beats["R_Peak_Idx"], to_end=0) / fs_radar
+    )
     # ensure equal length by filling the last value with the average RR interval
-    radar_beats.loc[radar_beats.index[-1], "RR_Interval"] = radar_beats["RR_Interval"].mean()
+    radar_beats.loc[radar_beats.index[-1], "RR_Interval"] = radar_beats[
+        "RR_Interval"
+    ].mean()
 
-    bp.signals.ecg.EcgProcessor.correct_outlier(rpeaks=radar_beats, sampling_rate=fs_radar,
-                                                imputation_type="moving_average",
-                                                outlier_correction=["physiological", "statistical_rr",
-                                                                    "statistical_rr_diff"])
+    bp.signals.ecg.EcgProcessor.correct_outlier(
+        rpeaks=radar_beats,
+        sampling_rate=fs_radar,
+        imputation_type="moving_average",
+        outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
+    )
 
     return radar_beats
 
@@ -77,15 +89,21 @@ class TemporalFilters:
         nyq = 0.5 * fs
         low = lowcut / nyq
         high = highcut / nyq
-        sos = scipy.signal.butter(order, [low, high], btype="band", analog=False, output="sos")
+        sos = scipy.signal.butter(
+            order, [low, high], btype="band", analog=False, output="sos"
+        )
         return sos
 
     def butter_lowpass_coeff(self, cutOff, fs, order=5):
-        sos = scipy.signal.butter(order, cutOff, btype="lowpass", analog=False, output="sos", fs=fs)
+        sos = scipy.signal.butter(
+            order, cutOff, btype="lowpass", analog=False, output="sos", fs=fs
+        )
         return sos
 
     def butter_highpass_coeff(self, cutOff, fs, order=5):
-        sos = scipy.signal.butter(order, cutOff, btype="highpass", analog=False, output="sos", fs=fs)
+        sos = scipy.signal.butter(
+            order, cutOff, btype="highpass", analog=False, output="sos", fs=fs
+        )
         return sos
 
     def butter_bandpass_filter(self, data, lowcut, highcut, fs, order=5, zi=None):
@@ -155,7 +173,11 @@ class Processing:
 
         # Radar Filtering and Feature Generation
 
-        self.hs_envelope = np.convolve(np.abs(scipy.signal.hilbert(self.hs)).flatten(), np.ones(100) / 100, mode="same")
+        self.hs_envelope = np.convolve(
+            np.abs(scipy.signal.hilbert(self.hs)).flatten(),
+            np.ones(100) / 100,
+            mode="same",
+        )
         self.rad_lp = self.filter_fun.butter_lowpass_filter(self.rad, 15, self.FS_Radar)
         self.hs_envelope = scipy.signal.decimate(self.hs_envelope, 20, axis=0)
 
@@ -169,7 +191,17 @@ class Processing:
         # coefs, _ = pywt.cwt(self.hs, np.arange(1,256),"gaus1");
         # print(np.shape(coefs))
 
-        rad_vectors = np.transpose(np.vstack((self.rad_lp, self.hs_envelope, self.angle, self.rad_i_dc, self.rad_q_dc)))
+        rad_vectors = np.transpose(
+            np.vstack(
+                (
+                    self.rad_lp,
+                    self.hs_envelope,
+                    self.angle,
+                    self.rad_i_dc,
+                    self.rad_q_dc,
+                )
+            )
+        )
 
         mean = rad_vectors.mean(axis=0)
         std = rad_vectors.std(axis=0)
@@ -195,13 +227,19 @@ class Processing:
 
         reconstruction = np.pad(reconstruct, (190, 190))
 
-        predicted_beats = scipy.signal.resample(reconstruction, len(self.radarWindowedSamples))
+        predicted_beats = scipy.signal.resample(
+            reconstruction, len(self.radarWindowedSamples)
+        )
 
         self.predictedBeats = pd.DataFrame(
-            predicted_beats, columns=["predicted_beats"], index=self.radarWindowedSamples.index
+            predicted_beats,
+            columns=["predicted_beats"],
+            index=self.radarWindowedSamples.index,
         )
         self.beatpeaks, _ = scipy.signal.find_peaks(
-            predicted_beats, distance=Minimumperiod * self.FS_Radar, height=DETECTIONTHRESHOLD
+            predicted_beats,
+            distance=Minimumperiod * self.FS_Radar,
+            height=DETECTIONTHRESHOLD,
         )
 
         self.beatpeaks = np.array(np.around(self.beatpeaks / 2))
@@ -209,7 +247,10 @@ class Processing:
             self.beatpeaks.astype(int), input_type="peaks_idx", output_type="peaks"
         )
         corrpeaks = correct_peaks(
-            temppeaks, input_type="peaks", missed_correction=False, extra_correction=False
+            temppeaks,
+            input_type="peaks",
+            missed_correction=False,
+            extra_correction=False,
         )
         temp = np.where(corrpeaks["clean_peaks"])[0] * 2
         # temp = systole.utils.input_conversion(corrpeaks,input_type='peaks',output_type='peaks_idx')*2
@@ -221,19 +262,31 @@ class Processing:
 
         # print(self.radarWindowedSamples[:, "I"])
 
-        self.rad_i = self.filter_fun.butter_highpass_filter(self.radarWindowedSamples["I"], 0.2, self.FS_Radar)
-        self.rad_q = self.filter_fun.butter_highpass_filter(self.radarWindowedSamples["Q"], 0.2, self.FS_Radar)
+        self.rad_i = self.filter_fun.butter_highpass_filter(
+            self.radarWindowedSamples["I"], 0.2, self.FS_Radar
+        )
+        self.rad_q = self.filter_fun.butter_highpass_filter(
+            self.radarWindowedSamples["Q"], 0.2, self.FS_Radar
+        )
 
         self.rad = np.sqrt(np.square(self.rad_i) + np.square(self.rad_q))
-        self.hs = self.filter_fun.butter_bandpass_filter(self.rad, 15, 60, self.FS_Radar)
+        self.hs = self.filter_fun.butter_bandpass_filter(
+            self.rad, 15, 60, self.FS_Radar
+        )
         self.pw = self.filter_fun.butter_lowpass_filter(self.rad, 1.5, self.FS_Radar)
 
-        self.wrapped_raw_phase = np.arctan2(self.radarWindowedSamples["I"], self.radarWindowedSamples["Q"])
+        self.wrapped_raw_phase = np.arctan2(
+            self.radarWindowedSamples["I"], self.radarWindowedSamples["Q"]
+        )
         self.unwrapped_raw_phase = np.unwrap(self.wrapped_raw_phase) * Radian2Meter
 
-        self.br = self.filter_fun.butter_lowpass_filter(self.unwrapped_raw_phase, 0.2, self.FS_Radar)
+        self.br = self.filter_fun.butter_lowpass_filter(
+            self.unwrapped_raw_phase, 0.2, self.FS_Radar
+        )
 
-        self.respBeats, _ = scipy.signal.find_peaks(self.br, distance=2 * self.FS_Radar)  # prominence=0.05)
+        self.respBeats, _ = scipy.signal.find_peaks(
+            self.br, distance=2 * self.FS_Radar
+        )  # prominence=0.05)
 
         self.respBeats = np.array(self.respBeats)
 
