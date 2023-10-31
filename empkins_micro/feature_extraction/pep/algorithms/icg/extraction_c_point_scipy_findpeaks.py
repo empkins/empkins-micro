@@ -22,7 +22,6 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
             save_candidates: Optional[bool] = False
     ):
         """initialize new CPointExtraction_ScipyFindPeaks algorithm instance
-
         Args:
             window_c_correction : int
                 how many preceding heartbeats are taken into account for C-point correction (using mean R-C-distance)
@@ -37,7 +36,6 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
     @make_action_safe
     def extract(self, signal_clean: pd.Series, heartbeats: pd.DataFrame, sampling_rate_hz: int):
         """function which extracts C-points (max of most prominent peak) from given cleaned ICG derivative signal
-
         Args:
             signal_clean:
                 cleaned ICG derivative signal
@@ -46,7 +44,6 @@ class CPointExtraction_ScipyFindPeaks(BaseExtraction):
                 location (in samples from beginning of signal) of that heartbeat, index functions as id of heartbeat
             sampling_rate_hz:
                 sampling rate of ICG derivative signal in hz
-
         Returns:
             saves resulting C-point positions (and C-candidates) in points_, index is heartbeat id
         """
