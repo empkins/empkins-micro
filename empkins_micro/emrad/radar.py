@@ -12,6 +12,7 @@ import scipy.signal
 import tensorflow as tf
 import biopsykit as bp
 from scipy.signal import find_peaks
+from numpy.lib.stride_tricks import sliding_window_view
 
 from empkins_micro.emrad.utils import input_conversion, correct_peaks
 
@@ -31,15 +32,26 @@ def get_rpeaks(
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
+    print("------ duration ------")
+    print(duration)
+    print("------ num_windows before and after factoring overlap------")
+    print(num_windows)
+    #num_win for slinding window with overlap 50%
+    overlap = 2
+    num_windows = num_windows * overlap + 1
+    if num_windows * window_size / overlap > duration:
+        num_windows = num_windows - 1
+    print(num_windows)
 
     processing = Processing(FS=fs_radar, window_size=window_size)
 
     for wind_ctr in range(num_windows):
-
-        start_sample_radar = round(wind_ctr * window_size * fs_radar)
+        #shift the window by overlap of the window size
+        start_sample_radar = round((wind_ctr * (window_size / overlap) * fs_radar))
         end_sample_radar = min(
-            start_sample_radar + round(fs_radar * window_size), len(radar_data)
+            start_sample_radar + round((fs_radar * window_size)), len(radar_data)
         )
+
 
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
 
@@ -47,7 +59,8 @@ def get_rpeaks(
         processing.predictBeats()
 
         predicted_beats = processing.getBeats()[["predicted_beats"]]
-        data_out[wind_ctr] = predicted_beats
+        data_out[wind_ctr] = predicted_beats[int((window_size / (overlap * 2) * fs_radar)):int(-((window_size / (overlap * 2)) * fs_radar))]
+
 
     if len(data_out) > 1:
         data_concat = pd.concat(data_out, names=["participant", "window_id"])
@@ -55,11 +68,12 @@ def get_rpeaks(
         data_concat = pd.DataFrame(predicted_beats)
 
     radar_beats = find_peaks(
-        data_concat.predicted_beats, height=0.05, distance=0.3 * fs_radar
+        data_concat.predicted_beats, height=0.22, distance=0.3 * fs_radar
     )[0]
     radar_beats = pd.DataFrame(
         radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"]
     )
+
 
     radar_beats["R_Peak_Quality"] = np.ones(
         len(radar_beats)
@@ -84,7 +98,7 @@ def get_rpeaks(
         outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
     )
 
-    return radar_beats
+    return radar_beats, data_concat
 
 
 # tf.config.threading.set_intra_op_parallelism_threads(1)
@@ -168,8 +182,10 @@ class Processing:
         self.rad_q_dc = np.zeros(length_decimated)
         self.angle = np.zeros(length_decimated)
 
-        path = Path(__file__).parent / "model.tf"
+        path = Path(__file__).parent / "my_model.keras"
         self.model = tf.keras.models.load_model(str(path))
+
+
         self.predictedBeats = np.zeros(self.num_samples)
         self.respBeats = []
 
