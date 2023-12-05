@@ -6,28 +6,21 @@ authors = ["Robert Richer <robert.richer@fau.de>"]
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-biopsykit = {git="https://github.com/mad-lab-fau/BioPsyKit.git", branch="main", extras=["jupyter"]}
-empkins-io = {path="../empkins-io", develop=true}
+biopsykit = { git = "https://github.com/mad-lab-fau/BioPsyKit.git", branch = "main", extras = ["jupyter"] }
+empkins-io = { path = "../empkins-io", develop = true }
 numpy = "^1.24.3"
 
-"pyannote.audio" = {version = "^2.1.1", optional = true}
-torch = {version = "<2", optional = true}
-praat-parselmouth = {version = "^0.4.3", optional = true}
-webrtcvad = {version = "^2.0.10", optional = true}
-pydub = {version = "^0.25.1", optional = true}
-<<<<<<< HEAD
-wave = "^0.0.2"
-contextlib2 = "^21.6.0"
-collection = "^0.1.6"
-ts2vg = "*"
-=======
-wave = {version = "^0.0.2", optional = true}
-contextlib2 = {version = "^21.6.0", optional = true}
-collection = {version = "^0.1.6", optional = true}
->>>>>>> d59aa91c7aac2959708914e336800943f11ab507
+"pyannote.audio" = { version = "^2.1.1", optional = true }
+torch = { version = "<2", optional = true }
+praat-parselmouth = { version = "^0.4.3", optional = true }
+webrtcvad = { version = "^2.0.10", optional = true }
+pydub = { version = "^0.25.1", optional = true }
+wave = { version = "^0.0.2", optional = true }
+contextlib2 = { version = "^21.6.0", optional = true }
+collection = { version = "^0.1.6", optional = true }
 
-tensorflow-macos = {version = "2.10.0", optional = true, platform="darwin"}
-pywavelets = {version = "^1.4.1", optional = true}
+tensorflow-macos = { version = "2.10.0", optional = true, platform = "darwin" }
+pywavelets = { version = "^1.4.1", optional = true }
 
 [tool.poetry.extras]
 audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub", "wave", "contextlib2", "collection", "torch"]
@@ -78,11 +71,11 @@ _isort_check = "isort **/*.py --check-only"
 # Reformat all files using black and sort import
 format = { sequence = ["_black", "_isort"], help = "Format all files." }
 format_check = ["_black_check", "_isort_check"]
-lint = {cmd = "prospector", help = "Lint all files with Prospector." }
-test = {cmd = "pytest --cov=empkins_micro --cov-report=xml", help = "Run Pytest with coverage." }
-docs = {"script" = "_tasks:task_docs"}
-update_version = {"script" = "_tasks:task_update_version"}
-register_ipykernel = { cmd = "python -m ipykernel install --user --name empkins-micro --display-name empkins-micro", help = "Add a new jupyter kernel for the project."}
-remove_ipykernel = { cmd = "jupyter kernelspec uninstall empkins-micro", help = "Remove the project specific jupyter kernel."}
-default = {sequence = ["format", "lint", "test"], help = "Run the default pipeline, consisting of formatting, linting, and testing."}
+lint = { cmd = "prospector", help = "Lint all files with Prospector." }
+test = { cmd = "pytest --cov=empkins_micro --cov-report=xml", help = "Run Pytest with coverage." }
+docs = { "script" = "_tasks:task_docs" }
+update_version = { "script" = "_tasks:task_update_version" }
+register_ipykernel = { cmd = "python -m ipykernel install --user --name empkins-micro --display-name empkins-micro", help = "Add a new jupyter kernel for the project." }
+remove_ipykernel = { cmd = "jupyter kernelspec uninstall empkins-micro", help = "Remove the project specific jupyter kernel." }
+default = { sequence = ["format", "lint", "test"], help = "Run the default pipeline, consisting of formatting, linting, and testing." }
 
