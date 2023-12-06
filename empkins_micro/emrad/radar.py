@@ -13,6 +13,7 @@ import tensorflow as tf
 import biopsykit as bp
 from scipy.signal import find_peaks
 from numpy.lib.stride_tricks import sliding_window_view
+import neurokit2 as nk
 
 from empkins_micro.emrad.utils import input_conversion, correct_peaks
 
@@ -68,7 +69,7 @@ def get_rpeaks(
         data_concat = pd.DataFrame(predicted_beats)
 
     radar_beats = find_peaks(
-        data_concat.predicted_beats, height=0.22, distance=0.3 * fs_radar
+        data_concat.predicted_beats, height=0.08, distance=0.3 * fs_radar
     )[0]
     radar_beats = pd.DataFrame(
         radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"]
@@ -100,6 +101,38 @@ def get_rpeaks(
 
     return radar_beats, data_concat
 
+
+def transform_for_nk_hrv(
+        peaks: pd.DataFrame, lstm_output: pd.DataFrame, fs_radar: float
+):
+    pos_in_time = np.array([], dtype='object')
+    peak_ind = np.array([], dtype='int64')
+
+    for i in peaks['R_Peak_Idx']:
+        if np.isnan(i):
+            continue
+        pos_in_time = np.append(pos_in_time, lstm_output.index[int(i)])
+        peak_ind = np.append(peak_ind, int(i))
+
+    time_to_int = np.array([], dtype='int64')
+    val_peak = np.array([], dtype='int64')
+
+    for i in range(len(lstm_output)):
+        time_to_int = np.append(time_to_int, i)
+        val_peak = np.append(val_peak, 0)
+        for j in pos_in_time:
+            if lstm_output.index[i] == j:
+                val_peak[i] = 1
+
+    info = {'method_peaks': 'emkins_micro',
+            'method_fixpeaks': 'None',
+            'ECG_R_Peaks': peak_ind,
+            'sampling_rate': fs_radar}
+
+    hrv_input_peak = pd.DataFrame({"ECG_R_Peaks": val_peak},
+                                    index=time_to_int)
+
+    return hrv_input_peak, info
 
 # tf.config.threading.set_intra_op_parallelism_threads(1)
 # tf.config.threading.set_inter_op_parallelism_threads(12)
