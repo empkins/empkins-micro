@@ -105,14 +105,15 @@ def get_rpeaks(
 def transform_for_nk_hrv(
         peaks: pd.DataFrame, lstm_output: pd.DataFrame, fs_radar: float
 ):
-    pos_in_time = np.array([], dtype='object')
-    peak_ind = np.array([], dtype='int64')
 
-    for i in peaks['R_Peak_Idx']:
-        if np.isnan(i):
-            continue
-        pos_in_time = np.append(pos_in_time, lstm_output.index[int(i)])
-        peak_ind = np.append(peak_ind, int(i))
+    drop_nan_peaks = peaks['R_Peak_Idx'].dropna()
+    pos_in_time = np.empty_like(drop_nan_peaks, dtype='object')
+    peak_ind = np.empty_like(drop_nan_peaks, dtype='int64')
+    j = 0
+    for i in drop_nan_peaks:
+        pos_in_time[j] = lstm_output.index[int(i)]
+        peak_ind[j] = int(i)
+        j = j + 1
 
     time_to_int = np.arange(len(lstm_output_1), dtype='int64')
     val_peak = np.zeros_like(val_peak_1, dtype='int64')
