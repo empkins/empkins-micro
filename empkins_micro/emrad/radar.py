@@ -114,12 +114,10 @@ def transform_for_nk_hrv(
         pos_in_time = np.append(pos_in_time, lstm_output.index[int(i)])
         peak_ind = np.append(peak_ind, int(i))
 
-    time_to_int = np.array([], dtype='int64')
-    val_peak = np.array([], dtype='int64')
+    time_to_int = np.arange(len(lstm_output_1), dtype='int64')
+    val_peak = np.zeros_like(val_peak_1, dtype='int64')
 
-    for i in range(len(lstm_output)):
-        time_to_int = np.append(time_to_int, i)
-        val_peak = np.append(val_peak, 0)
+    for i in range(len(lstm_output_1)):
         j = 0
         if lstm_output.index[i] == pos_in_time[j]:
             val_peak[i] = 1
