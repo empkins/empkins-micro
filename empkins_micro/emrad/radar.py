@@ -117,12 +117,12 @@ def transform_for_nk_hrv(
 
     time_to_int = np.arange(len(lstm_output), dtype='int64')
     val_peak = np.zeros_like(time_to_int, dtype='int64')
-
+    j = 0
     for i in range(len(lstm_output)):
-        j = 0
         if lstm_output.index[i] == pos_in_time[j]:
             val_peak[i] = 1
-            j = j + 1
+            if j != len(pos_in_time)-1:
+                j = j + 1
 
     info = {'method_peaks': 'emkins_micro',
             'method_fixpeaks': 'None',
