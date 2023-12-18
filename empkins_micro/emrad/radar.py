@@ -14,6 +14,7 @@ import biopsykit as bp
 from scipy.signal import find_peaks
 from numpy.lib.stride_tricks import sliding_window_view
 import neurokit2 as nk
+import time
 
 from empkins_micro.emrad.utils import input_conversion, correct_peaks
 
@@ -27,52 +28,31 @@ DETECTIONTHRESHOLD = 0.05
 
 
 def get_rpeaks(
-    radar_data: pd.DataFrame, fs_radar: float, window_size: int
+    radar_data_1: pd.DataFrame, radar_data_2: pd.DataFrame,radar_data_3: pd.DataFrame,radar_data_4: pd.DataFrame, fs_radar: float, window_size: int
 ) -> bp.utils.datatype_helper.RPeakDataFrame:
 
-    data_out = {}
-    duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
-    num_windows = int(duration // window_size)
-    print("------ duration ------")
-    print(duration)
-    print("------ num_windows before and after factoring overlap------")
-    print(num_windows)
-    #num_win for slinding window with overlap 50%
-    overlap = 2
-    num_windows = num_windows * overlap + 1
-    if num_windows * window_size / overlap > duration:
-        num_windows = num_windows - 1
-    print(num_windows)
 
-    processing = Processing(FS=fs_radar, window_size=window_size)
+    lstm_1 = get_lstm(radar_data_1,fs_radar,window_size)
+    lstm_2 = get_lstm(radar_data_2,fs_radar,window_size)
+    lstm_3 = get_lstm(radar_data_3,fs_radar,window_size)
+    lstm_4 = get_lstm(radar_data_4,fs_radar,window_size)
 
-    for wind_ctr in range(num_windows):
-        #shift the window by overlap of the window size
-        start_sample_radar = round((wind_ctr * (window_size / overlap) * fs_radar))
-        end_sample_radar = min(
-            start_sample_radar + round((fs_radar * window_size)), len(radar_data)
-        )
-
-
-        radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
-
-        processing.setRadarSamples(radar_slice)
-        processing.predictBeats()
-
-        predicted_beats = processing.getBeats()[["predicted_beats"]]
-        data_out[wind_ctr] = predicted_beats[int((window_size / (overlap * 2) * fs_radar)):int(-((window_size / (overlap * 2)) * fs_radar))]
-
-
-    if len(data_out) > 1:
-        data_concat = pd.concat(data_out, names=["participant", "window_id"])
-    else:
-        data_concat = pd.DataFrame(predicted_beats)
-
+    start = time.time_ns()
+    print("concat lstm")
+    lstm_concat = pd.concat([lstm_1, lstm_2, lstm_3, lstm_4], axis=1)
+    end = time.time_ns()
+    print('time for concat: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
+    start = time.time_ns()
+    print("sum lstm")
+    lstm_sum = df.DataFrame({"sum_lstm": lstm_concat.sum(axis=1)})
+    print("find peaks of sum lstm")
+    end = time.time_ns()
+    print('time for sum: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
     radar_beats = find_peaks(
-        data_concat.predicted_beats, height=0.08, distance=0.3 * fs_radar
+        lstm_sum.predicted_beats, height=0.08, distance=0.3 * fs_radar
     )[0]
     radar_beats = pd.DataFrame(
-        radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"]
+        radar_beats, index=lstm_sum.index[radar_beats], columns=["peak_idx"]
     )
 
 
@@ -99,8 +79,48 @@ def get_rpeaks(
         outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
     )
 
-    return radar_beats, data_concat
+    return radar_beats, lstm_sum
 
+def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
+) -> bp.utils.datatype_helper.RPeakDataFrame:
+    data_out = {}
+    duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
+    num_windows = int(duration // window_size)
+    print("------ duration ------")
+    print(duration)
+    print("------ num_windows before and after factoring overlap------")
+    print(num_windows)
+    # num_win for slinding window with overlap 50%
+    overlap = 2
+    num_windows = num_windows * overlap + 1
+    if num_windows * window_size / overlap > duration:
+        num_windows = num_windows - 1
+    print(num_windows)
+
+    processing = Processing(FS=fs_radar, window_size=window_size)
+
+    for wind_ctr in range(num_windows):
+        # shift the window by overlap of the window size
+        start_sample_radar = round((wind_ctr * (window_size / overlap) * fs_radar))
+        end_sample_radar = min(
+            start_sample_radar + round((fs_radar * window_size)), len(radar_data)
+        )
+
+        radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
+
+        processing.setRadarSamples(radar_slice)
+        processing.predictBeats()
+
+        predicted_beats = processing.getBeats()[["predicted_beats"]]
+        data_out[wind_ctr] = predicted_beats[int((window_size / (overlap * 2) * fs_radar)):int(
+            -((window_size / (overlap * 2)) * fs_radar))]
+
+    if len(data_out) > 1:
+        data_concat = pd.concat(data_out, names=["participant", "window_id"])
+    else:
+        data_concat = pd.DataFrame(predicted_beats)
+
+    return data_concat
 
 def transform_for_nk_hrv(
         peaks: pd.DataFrame, lstm_output: pd.DataFrame, fs_radar: float
