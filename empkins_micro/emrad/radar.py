@@ -44,12 +44,20 @@ def get_rpeaks(
     print('time for concat: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
     start = time.time_ns()
     print("sum lstm")
-    lstm_sum = df.DataFrame({"sum_lstm": lstm_concat.sum(axis=1)})
+    lstm_sum = pd.DataFrame({"predicted_beats": lstm_concat.sum(axis=1)})
     print("find peaks of sum lstm")
     end = time.time_ns()
     print('time for sum: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
+
+    start = time.time_ns()
+    radar_beats = get_pred_peaks(lstm_sum, fs_radar, 0.08)
+    end = time.time_ns()
+    print('time for get_pred_peaks: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
+    return radar_beats, lstm_sum
+def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
+                   )-> bp.utils.datatype_helper.RPeakDataFrame:
     radar_beats = find_peaks(
-        lstm_sum.predicted_beats, height=0.08, distance=0.3 * fs_radar
+        lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar
     )[0]
     radar_beats = pd.DataFrame(
         radar_beats, index=lstm_sum.index[radar_beats], columns=["peak_idx"]
@@ -79,10 +87,10 @@ def get_rpeaks(
         outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
     )
 
-    return radar_beats, lstm_sum
+    return radar_beats
 
 def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
-) -> bp.utils.datatype_helper.RPeakDataFrame:
+             ) -> bp.utils.datatype_helper.RPeakDataFrame:
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
