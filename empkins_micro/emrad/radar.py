@@ -53,7 +53,9 @@ def get_rpeaks(
     radar_beats = get_pred_peaks(lstm_sum, fs_radar, 0.08)
     end = time.time_ns()
     print('time for get_pred_peaks: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
+
     return radar_beats, lstm_sum
+
 def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
                    )-> bp.utils.datatype_helper.RPeakDataFrame:
     radar_beats = find_peaks(
@@ -62,7 +64,6 @@ def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
     radar_beats = pd.DataFrame(
         radar_beats, index=lstm_sum.index[radar_beats], columns=["peak_idx"]
     )
-
 
     radar_beats["R_Peak_Quality"] = np.ones(
         len(radar_beats)
@@ -124,7 +125,7 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
             -((window_size / (overlap * 2)) * fs_radar))]
 
     if len(data_out) > 1:
-        data_concat = pd.concat(data_out, names=["participant", "window_id"])
+        data_concat = pd.concat(data_out, names=["window_id"])
     else:
         data_concat = pd.DataFrame(predicted_beats)
 
