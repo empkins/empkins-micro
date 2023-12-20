@@ -39,12 +39,15 @@ def get_rpeaks(
 
     start = time.time_ns()
     print("concat lstm")
-    lstm_concat = pd.concat([lstm_1, lstm_2, lstm_3, lstm_4], axis=1)
+    lstm_concat = pd.DataFrame({"predicted_beats_1": lstm_1["predicted_beats"],
+                  "predicted_beats_2": lstm_2["predicted_beats"],
+                  "predicted_beats_3": lstm_3["predicted_beats"],
+                  "predicted_beats_4": lstm_4["predicted_beats"]})
     end = time.time_ns()
     print('time for concat: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
     start = time.time_ns()
     print("sum lstm")
-    lstm_sum = pd.DataFrame({"predicted_beats": lstm_concat.sum(axis=1)})
+    lstm_sum = pd.DataFrame({"predicted_beats": lstm_concat.sum(axis=1, min_count=1)})
     print("find peaks of sum lstm")
     end = time.time_ns()
     print('time for sum: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
@@ -90,8 +93,7 @@ def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
 
     return radar_beats
 
-def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
-             ) -> bp.utils.datatype_helper.RPeakDataFrame:
+def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
@@ -105,14 +107,16 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
     if num_windows * window_size / overlap > duration:
         num_windows = num_windows - 1
     print(num_windows)
+    cut_off = int((window_size / (overlap * 2) * fs_radar))
+
 
     processing = Processing(FS=fs_radar, window_size=window_size)
 
     for wind_ctr in range(num_windows):
         # shift the window by overlap of the window size
-        start_sample_radar = round((wind_ctr * (window_size / overlap) * fs_radar))
+        start_sample_radar = int(np.ceil(wind_ctr * (window_size / overlap) * fs_radar))
         end_sample_radar = min(
-            start_sample_radar + round((fs_radar * window_size)), len(radar_data)
+            start_sample_radar + int(np.floor(fs_radar * window_size)), len(radar_data)
         )
 
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
@@ -121,14 +125,18 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int
         processing.predictBeats()
 
         predicted_beats = processing.getBeats()[["predicted_beats"]]
-        data_out[wind_ctr] = predicted_beats[int((window_size / (overlap * 2) * fs_radar)):int(
-            -((window_size / (overlap * 2)) * fs_radar))]
+
+        if start_sample_radar + cut_off + 1 == min(int(np.ceil((wind_ctr-1) * (window_size / overlap) * fs_radar)) + int(np.floor(fs_radar * window_size)) - cut_off,
+                                                len(radar_data)):
+            data_out[wind_ctr] = predicted_beats[cut_off+2:-cut_off]
+        data_out[wind_ctr] = predicted_beats[cut_off+1:-cut_off]
 
     if len(data_out) > 1:
         data_concat = pd.concat(data_out, names=["window_id"])
     else:
         data_concat = pd.DataFrame(predicted_beats)
 
+    data_concat.index = data_concat.index.droplevel(0)
     return data_concat
 
 def transform_for_nk_hrv(
