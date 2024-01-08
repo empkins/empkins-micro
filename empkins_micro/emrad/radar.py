@@ -61,9 +61,12 @@ def get_rpeaks(
 
 def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
                    )-> bp.utils.datatype_helper.RPeakDataFrame:
-    radar_beats = find_peaks(
-        lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar
-    )[0]
+    radar_beats,peak_prop = find_peaks(
+        lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar, width=None, prominence=None
+    )
+    #radar_beats = find_peaks(
+    #    lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar
+    #)[0]
     radar_beats = pd.DataFrame(
         radar_beats, index=lstm_sum.index[radar_beats], columns=["peak_idx"]
     )
@@ -91,7 +94,7 @@ def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
         outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
     )
 
-    return radar_beats
+    return radar_beats, peak_prop
 
 def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
     data_out = {}
