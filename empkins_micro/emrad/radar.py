@@ -28,7 +28,8 @@ DETECTIONTHRESHOLD = 0.05
 
 
 def get_rpeaks(
-    radar_data_1: pd.DataFrame, radar_data_2: pd.DataFrame,radar_data_3: pd.DataFrame,radar_data_4: pd.DataFrame, fs_radar: float, window_size: int
+    radar_data_1: pd.DataFrame, radar_data_2: pd.DataFrame, radar_data_3: pd.DataFrame, radar_data_4: pd.DataFrame,
+    fs_radar: float, window_size: int, threshold: float
 ) -> bp.utils.datatype_helper.RPeakDataFrame:
 
 
@@ -53,7 +54,7 @@ def get_rpeaks(
     print('time for sum: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
 
     start = time.time_ns()
-    radar_beats = get_pred_peaks(lstm_sum, fs_radar, 0.08)
+    radar_beats, beats_prop = get_pred_peaks(lstm_sum, fs_radar, threshold)
     end = time.time_ns()
     print('time for get_pred_peaks: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
 
@@ -87,12 +88,12 @@ def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
         "RR_Interval"
     ].mean()
 
-    bp.signals.ecg.EcgProcessor.correct_outlier(
-        rpeaks=radar_beats,
-        sampling_rate=fs_radar,
-        imputation_type="moving_average",
-        outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
-    )
+    #bp.signals.ecg.EcgProcessor.correct_outlier(
+    #    rpeaks=radar_beats,
+    #    sampling_rate=fs_radar,
+    #    imputation_type="moving_average",
+    #    outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
+    #)
 
     return radar_beats, peak_prop
 
