@@ -32,27 +32,35 @@ def get_rpeaks(
     fs_radar: float, window_size: int, threshold: float
 ) -> bp.utils.datatype_helper.RPeakDataFrame:
 
-
+    print("----- get lstm rad 1 ------")
+    start = time.time_ns()
     lstm_1 = get_lstm(radar_data_1,fs_radar,window_size)
+    end = time.time_ns()
+    print('time for get_lstm rad 1: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(
+        ((end - start) / (10 ** 9)) / 60))
+    print("----- get lstm rad 2 ------")
     lstm_2 = get_lstm(radar_data_2,fs_radar,window_size)
+    print("----- get lstm rad 3 ------")
     lstm_3 = get_lstm(radar_data_3,fs_radar,window_size)
+    print("----- get lstm rad 4 ------")
     lstm_4 = get_lstm(radar_data_4,fs_radar,window_size)
 
+    print("------- concat lstm --------")
     start = time.time_ns()
-    print("concat lstm")
     lstm_concat = pd.DataFrame({"predicted_beats_1": lstm_1["predicted_beats"],
                   "predicted_beats_2": lstm_2["predicted_beats"],
                   "predicted_beats_3": lstm_3["predicted_beats"],
                   "predicted_beats_4": lstm_4["predicted_beats"]})
     end = time.time_ns()
     print('time for concat: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
+
+    print("-------- sum lstm ----------")
     start = time.time_ns()
-    print("sum lstm")
     lstm_sum = pd.DataFrame({"predicted_beats": lstm_concat.sum(axis=1, min_count=1)})
-    print("find peaks of sum lstm")
     end = time.time_ns()
     print('time for sum: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
 
+    print("------- find peaks of sum lstm --------")
     start = time.time_ns()
     radar_beats, beats_prop = get_pred_peaks(lstm_sum, fs_radar, threshold)
     end = time.time_ns()
@@ -122,7 +130,7 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
         end_sample_radar = min(
             start_sample_radar + int(np.floor(fs_radar * window_size)), len(radar_data)
         )
-
+       # print("window size" + str((radar_data.index[end_sample_radar]-radar_data.index[start_sample_radar]).total_seconds()))
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
 
         processing.setRadarSamples(radar_slice)
@@ -148,10 +156,10 @@ def transform_for_nk_hrv(
 ):
 
     drop_nan_peaks = peaks['R_Peak_Idx'].dropna()
-    pos_in_time = np.empty_like(drop_nan_peaks, dtype='object')
-    peak_ind = np.empty_like(drop_nan_peaks, dtype='int64')
+    pos_in_time = np.empty_like(peaks['R_Peak_Idx'], dtype='object')
+    peak_ind = np.empty_like(peaks['R_Peak_Idx'], dtype='int64')
     j = 0
-    for i in drop_nan_peaks:
+    for i in peaks['R_Peak_Idx']:
         pos_in_time[j] = lstm_output.index[int(i)]
         peak_ind[j] = int(i)
         j = j + 1
@@ -170,7 +178,9 @@ def transform_for_nk_hrv(
             'ECG_R_Peaks': peak_ind,
             'sampling_rate': fs_radar}
 
-    hrv_input_peak = pd.DataFrame({"ECG_R_Peaks": val_peak},
+    hrv_input_peak = pd.DataFrame({"time": lstm_output.index,
+                                   "ECG_R_Peaks": val_peak
+                                   },
                                     index=time_to_int)
 
     return hrv_input_peak, info
