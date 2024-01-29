@@ -184,6 +184,65 @@ def transform_for_nk_hrv(
                                     index=time_to_int)
 
     return hrv_input_peak, info
+def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame, fs_radar:float):
+
+    print("Window_size in s: " + str(window_size))
+    window_size = window_size
+    window_step = window_step
+    d = {}
+    temp_val = {}
+
+    duration = (hrv_input_peak["time"].iloc[-1] - hrv_input_peak["time"].iloc[0]).total_seconds()
+    num_windows = int(duration // window_step)
+    print("------ duration ------")
+    print(duration)
+    print("------ num_windows before and after factoring overlap------")
+    print(num_windows)
+        # num_win for slinding window with overlap 50%
+    overlap = 1
+    num_windows = num_windows * overlap + 1
+    if num_windows * window_size / overlap > duration:
+        num_windows = num_windows - 1
+
+    print(num_windows)
+    print("----win_loop_start----")
+    array_start_sample_radar = np.zeros(num_windows, dtype=int)
+    array_end_sample_radar = np.zeros(num_windows, dtype=int)
+    magic_minus = 1
+    for wind_ctr in range(num_windows):
+        # print("window size in int " + str(array_end_sample_radar[wind_ctr] - array_start_sample_radar[wind_ctr]))
+        array_start_sample_radar[wind_ctr] = int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar)))
+        array_end_sample_radar[wind_ctr] = min(
+                array_start_sample_radar[wind_ctr] + int(np.ceil((fs_radar * window_size))), len(hrv_input_peak) - 1)
+
+        # Randbehandlung repeat last valid window til end of data / put 0 in the window
+        if array_end_sample_radar[wind_ctr] == len(hrv_input_peak) - 1:
+            d[wind_ctr] = d[wind_ctr - magic_minus]  # write the last full window in the following windows
+            # d[wind_ctr] = pd.DataFrame(0, index=[wind_ctr], columns=d[wind_ctr-magic_minus].columns) # to fill with zeros
+            temp_val[wind_ctr] = pd.DataFrame(
+                {"time": hrv_input_peak["time"].loc[array_start_sample_radar[wind_ctr - magic_minus]]}, index=[wind_ctr])
+            # temp_val[wind_ctr] = pd.DataFrame({"time": 0} index=[wind_ctr])
+            magic_minus = magic_minus + 1
+            continue
+
+        peak_window = hrv_input_peak.iloc[array_start_sample_radar[wind_ctr]:(array_end_sample_radar[wind_ctr])]
+
+        hrv_window = nk.hrv(peak_window, sampling_rate=fs_radar)
+        d[wind_ctr] = hrv_window
+        temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[array_start_sample_radar[wind_ctr]]},
+                                              index=[wind_ctr])
+
+    print("-------- concat data  --------")
+    temp = pd.concat(temp_val)
+    temp.index = temp.index.droplevel(1)
+    conc_d = pd.concat(d, names=["window_id"])
+    conc_d.index = conc_d.index.droplevel(1)
+    data_concat = pd.concat([temp, conc_d], axis=1, names=["window_id", "time"])
+    data_concat = data_concat.replace(np.nan, 0)
+    data_concat.index.names = ['window_id']
+
+    return data_concat
+
 
 # tf.config.threading.set_intra_op_parallelism_threads(1)
 # tf.config.threading.set_inter_op_parallelism_threads(12)
