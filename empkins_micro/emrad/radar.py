@@ -209,7 +209,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     array_middel_sample_radar = np.zeros(num_windows, dtype=int)
     magic_minus = 1
     for wind_ctr in range(num_windows):
-        array_middel_sample_radar[wind_ctr] = max(int(np.ceil((wind_ctr * (step // overlap) * fs_radar))),
+        array_middel_sample_radar[wind_ctr] = max(int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar))),
                                                   int(np.ceil(((window_size // 2) * fs_radar))))
         start_sampel = int(array_middel_sample_radar[wind_ctr] - np.ceil(((window_size // 2) * fs_radar)))
         end_sampel = min(int(array_middel_sample_radar[wind_ctr] + np.ceil(((window_size//2)* fs_radar))), len(hrv_input_peak)-1)
@@ -218,7 +218,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
             d[wind_ctr] = d[wind_ctr - magic_minus]  # write the last full window in the following windows
             # d[wind_ctr] = pd.DataFrame(0, index=[wind_ctr], columns=d[wind_ctr-magic_minus].columns) # to fill with zeros
             temp_val[wind_ctr] = pd.DataFrame(
-                {"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (step // overlap))))]}, index=[wind_ctr])
+                {"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap))))]}, index=[wind_ctr])
             # temp_val[wind_ctr] = pd.DataFrame({"time": 0} index=[wind_ctr])
             magic_minus = magic_minus + 1
             continue
@@ -227,7 +227,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
 
         hrv_window = nk.hrv(peak_window, sampling_rate=fs_radar)
         d[wind_ctr] = hrv_window
-        temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (step // overlap))))]},
+        temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap))))]},
                                               index=[wind_ctr])
 
     print("-------- concat data  --------")
