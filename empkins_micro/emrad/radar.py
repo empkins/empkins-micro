@@ -154,7 +154,8 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
 def transform_for_nk_hrv(
         peaks: pd.DataFrame, lstm_output: pd.DataFrame, fs_radar: float
 ):
-
+    print("------ transform_for_nk_hrv ------")
+    print("------ extrakt peak position in peaks ------")
     drop_nan_peaks = peaks['R_Peak_Idx'].dropna()
     pos_in_time = np.empty_like(peaks['R_Peak_Idx'], dtype='object')
     peak_ind = np.empty_like(peaks['R_Peak_Idx'], dtype='int64')
@@ -164,6 +165,7 @@ def transform_for_nk_hrv(
         peak_ind[j] = int(i)
         j = j + 1
 
+    print("------ extrakt time index of peaks ------")
     time_to_int = np.arange(len(lstm_output), dtype='int64')
     val_peak = np.zeros_like(time_to_int, dtype='int64')
     j = 0
@@ -173,6 +175,7 @@ def transform_for_nk_hrv(
             if j != len(pos_in_time)-1:
                 j = j + 1
 
+    print("------ create dict and hrv_input------")
     info = {'method_peaks': 'emkins_micro',
             'method_fixpeaks': 'None',
             'ECG_R_Peaks': peak_ind,
@@ -184,6 +187,7 @@ def transform_for_nk_hrv(
                                     index=time_to_int)
 
     return hrv_input_peak, info
+
 def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame, fs_radar:float):
 
     print("Window_size in s: " + str(window_size))
@@ -209,6 +213,8 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     array_middel_sample_radar = np.zeros(num_windows, dtype=int)
     magic_minus = 1
     for wind_ctr in range(num_windows):
+        #window stays as long as 30 sec. epoch(step size) is smaller as the half of the window size at the same value
+        # just when epoch is biber than half the window size the window is shifted by 30sec of the step size
         array_middel_sample_radar[wind_ctr] = max(int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar))),
                                                   int(np.ceil(((window_size // 2) * fs_radar))))
         start_sampel = int(array_middel_sample_radar[wind_ctr] - np.ceil(((window_size // 2) * fs_radar)))
@@ -217,8 +223,9 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
         if end_sampel == len(hrv_input_peak) - 1:
             d[wind_ctr] = d[wind_ctr - magic_minus]  # write the last full window in the following windows
             # d[wind_ctr] = pd.DataFrame(0, index=[wind_ctr], columns=d[wind_ctr-magic_minus].columns) # to fill with zeros
+            #temp val showcases the time step of the epochs which will also be the time of the middle of the window after the middle is reached
             temp_val[wind_ctr] = pd.DataFrame(
-                {"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap))))]}, index=[wind_ctr])
+                {"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar)))]}, index=[wind_ctr])
             # temp_val[wind_ctr] = pd.DataFrame({"time": 0} index=[wind_ctr])
             magic_minus = magic_minus + 1
             continue
@@ -227,7 +234,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
 
         hrv_window = nk.hrv(peak_window, sampling_rate=fs_radar)
         d[wind_ctr] = hrv_window
-        temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap))))]},
+        temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar)))]},
                                               index=[wind_ctr])
 
     print("-------- concat data  --------")
