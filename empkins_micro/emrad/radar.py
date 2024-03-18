@@ -188,7 +188,7 @@ def transform_for_nk_hrv(
 
     return hrv_input_peak, info
 
-def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame, fs_radar:float):
+def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame, fs_radar:float, overlap:int):
 
     print("Window_size in s: " + str(window_size))
     window_size = window_size
@@ -199,11 +199,11 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     duration = (hrv_input_peak["time"].iloc[-1] - hrv_input_peak["time"].iloc[0]).total_seconds()
     num_windows = int(duration // window_step)
     print("------ duration ------")
-    print(duration)
+    print(f"dration of mesurment:{duration}")
     print("------ num_windows before and after factoring overlap------")
     print(num_windows)
         # num_win for slinding window with overlap 50%
-    overlap = 1
+    overlap = overlap
     num_windows = num_windows * overlap + 1
     if num_windows * window_size / overlap > duration:
         num_windows = num_windows - 1
@@ -217,8 +217,8 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
         # just when epoch is biber than half the window size the window is shifted by 30sec of the step size
         array_middel_sample_radar[wind_ctr] = max(int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar))),
                                                   int(np.ceil(((window_size // 2) * fs_radar))))
-        start_sampel = int(array_middel_sample_radar[wind_ctr] - np.ceil(((window_size // 2) * fs_radar)))
-        end_sampel = min(int(array_middel_sample_radar[wind_ctr] + np.ceil(((window_size//2)* fs_radar))), len(hrv_input_peak)-1)
+        start_sampel = array_middel_sample_radar[wind_ctr] - int(np.ceil(((window_size // 2) * fs_radar)))
+        end_sampel = min(array_middel_sample_radar[wind_ctr] + int(np.ceil(((window_size//2)* fs_radar))), len(hrv_input_peak)-1)
         # Randbehandlung repeat last valid window til end of data / put 0 in the window
         if end_sampel == len(hrv_input_peak) - 1:
             d[wind_ctr] = d[wind_ctr - magic_minus]  # write the last full window in the following windows
@@ -230,12 +230,26 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
             magic_minus = magic_minus + 1
             continue
 
-        peak_window = hrv_input_peak.iloc[start_sampel:end_sampel]
+        if array_middel_sample_radar[wind_ctr-1] != start_sampel and array_middel_sample_radar[wind_ctr-1] != 0:
+            peak_window = hrv_input_peak.iloc[start_sampel+1:end_sampel+1]
+         #   print(
+         #       f"start_sampel - end_sample, peak_wind_len, middel ad: {start_sampel+1, end_sampel+1, len(peak_window), array_middel_sample_radar[wind_ctr],}")
+        else:
+            peak_window = hrv_input_peak.iloc[start_sampel:end_sampel]
+         #   print(
+          #      f"start_sampel - end_sample, peak_wind_len, middel de: {start_sampel, end_sampel, len(peak_window), array_middel_sample_radar[wind_ctr],}")
 
-        hrv_window = nk.hrv(peak_window, sampling_rate=fs_radar)
+        #print(f"start_sampel - end_sample, peak_wind_len : {start_sampel, end_sampel, len(peak_window)}")
+
+        #hrv_window = nk.hrv(peak_window, sampling_rate=fs_radar)
+        hrv_time = nk.hrv_time(peak_window, sampling_rate=fs_radar)
+        hrv_frequ = nk.hrv_frequency(peak_window, sampling_rate=fs_radar)
+        hrv_nonlin = nk.hrv_nonlinear(peak_window, sampling_rate=fs_radar)
+        hrv_window = pd.concat([hrv_time, hrv_frequ, hrv_nonlin], axis=1)
         d[wind_ctr] = hrv_window
         temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar)))]},
                                               index=[wind_ctr])
+       # print(f"temp_val[wind_ctr], middel time: {temp_val[wind_ctr]}")
 
     print("-------- concat data  --------")
     temp = pd.concat(temp_val)
@@ -243,9 +257,9 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     conc_d = pd.concat(d, names=["window_id"])
     conc_d.index = conc_d.index.droplevel(1)
     data_concat = pd.concat([temp, conc_d], axis=1, names=["window_id", "time"])
-    data_concat = data_concat.replace(np.nan, 0)
     data_concat.index.names = ['window_id']
-
+    data_concat.dropna(axis=1,how='all',inplace=True)
+    #data_concat = data_concat.replace(np.nan, 0)
     return data_concat
 
 
