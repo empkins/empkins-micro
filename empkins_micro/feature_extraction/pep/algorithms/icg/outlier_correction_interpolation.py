@@ -31,12 +31,11 @@ class OutlierCorrectionInterpolation(BaseExtraction):
             index is B-point (/heartbeat) id
         """
         corrected_b_points = pd.DataFrame(index=b_points.index, columns=["b_point"])
-
         # stationarize the B-Point time data
         stationary_data = self.stationarize_data(b_points, c_points, sampling_rate_hz)
-
         # detect outliers
         outliers = self.detect_outliers(stationary_data)
+
         print(f"Detected {len(outliers)} outliers in correction cycle 1!")
 
         # Perform the outlier correction until no more outliers are detected
@@ -45,7 +44,7 @@ class OutlierCorrectionInterpolation(BaseExtraction):
             if counter > 200:
                 break
             corrected_b_points = self.correct_linear(b_points, c_points, stationary_data, outliers,
-                                                       stationary_data['baseline'])
+                                                       stationary_data['baseline'],sampling_rate_hz)
             stationary_data = self.stationarize_data(corrected_b_points, c_points, sampling_rate_hz)
             outliers = self.detect_outliers(stationary_data)
             print(f"Detected {len(outliers)} outliers in correction cycle {counter}!")
@@ -81,17 +80,18 @@ class OutlierCorrectionInterpolation(BaseExtraction):
 
     @staticmethod
     def correct_linear(b_points_uncorrected: pd.DataFrame, c_points: pd.DataFrame, statio_data: pd.DataFrame,
-                       outliers: pd.DataFrame, baseline: pd.DataFrame) ->pd.DataFrame:
+                       outliers: pd.DataFrame, baseline: pd.DataFrame,sampling_rate_hz:int) ->pd.DataFrame:
         data = statio_data['statio_data'].to_frame()
         # insert NaN at the heartbeat id of the outliers
         data.loc[outliers.index, 'statio_data'] = np.NaN
-        #print(outliers.index)
+
         # interpolate the outlier positions using linear interpolation
         data_interpol = data['statio_data'].astype(float).interpolate()
 
         corrected_b_points = b_points_uncorrected.copy()
         # Add the baseline back to the interpolated values
         corrected_b_points.loc[data.index, 'b_point'] = (
-                (c_points.c_point[c_points.index[data.index]] - (data_interpol + baseline) * 1000)).astype(int)
+                (c_points.c_point[c_points.index[data.index]] - (data_interpol + baseline) * sampling_rate_hz)).astype(int)
+
         return corrected_b_points
 

@@ -55,6 +55,7 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
                 stationary_data,
                 outliers,
                 stationary_data["baseline"],
+                sampling_rate_hz,
             )
             stationary_data = self.stationarize_data(
                 corrected_b_points, c_points, sampling_rate_hz
@@ -105,6 +106,7 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         statio_data: pd.DataFrame,
         outliers: pd.DataFrame,
         baseline: pd.DataFrame,
+        sampling_rate_hz: int,
     ) -> pd.DataFrame:
         data = statio_data["statio_data"].to_frame()
         data.loc[outliers.index, "statio_data"] = np.NaN
@@ -135,7 +137,7 @@ class OutlierCorrectionForouzanfar(BaseExtraction):
         result.loc[data.index, "b_point"] = (
             (
                 c_points.c_point[c_points.index[data.index]]
-                - (data["statio_data"] + baseline) * 1000
+                - (data["statio_data"] + baseline) * sampling_rate_hz
             )
         ).astype(int)
         return result
