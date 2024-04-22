@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import scipy.signal
-#import tensorflow as tf
-#import biopsykit as bp
+import tensorflow as tf
+import biopsykit as bp
 from scipy.signal import find_peaks
 from numpy.lib.stride_tricks import sliding_window_view
 import neurokit2 as nk
@@ -199,7 +199,9 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     duration = (hrv_input_peak["time"].iloc[-1] - hrv_input_peak["time"].iloc[0]).total_seconds()
     num_windows = int(duration // window_step)
     print("------ duration ------")
-    print(f"dration of mesurment:{duration}")
+    print(f"duration of mesurment in sec: {duration}")
+    print(f"duration of mesurment in min: {duration/60}")
+    print(f"duration of mesurment in h: {duration/3600}")
     print("------ num_windows before and after factoring overlap------")
     print(num_windows)
         # num_win for slinding window with overlap 50%
