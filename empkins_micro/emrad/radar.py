@@ -260,10 +260,10 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
         print(f"hrv_frequency: {hrv_frequ}")
 
         try:
-            hrv_nonlin = nk.hrv_nonlinear(peak_window, sampling_rate=fs_radar) # as rri intervals are not statik sometimes 60 s has to less intervals for
+            hrv_nonlin = nk.hrv_nonlinear(peak_window, sampling_rate=fs_radar) # as rri intervals are not statik sometimes 60 s has to less intervals for hrv_dfa scale [4 to 11]
             print(f"hrv_nonlin: {hrv_nonlin}")
         except:
-            hrv_nonlin = pd.DataFrame(np.nan, index=[0], columns=['SD1', 'SD2', 'SD1/SD2', 'CSI', 'CVI', 'Modified_CSI', 'SampEn', 'DFA_alpha1', 'DFA_alpha2', 'DFA_ratio'])
+            hrv_nonlin = pd.DataFrame(np.nan, index=[0], columns=['HRV_SD1'])
             print(f"hrv nonlin error in window {wind_ctr}, replaced with nan")
 
         print(f"----------------------------------all hrv in win{wind_ctr} ------------------------------------------------------")
