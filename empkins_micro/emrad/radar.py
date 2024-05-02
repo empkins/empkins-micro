@@ -110,15 +110,17 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
     print("------ duration ------")
-    print(duration)
+    print(f"duration of mesurment in sec: {duration}")
+    print(f"duration of mesurment in min: {duration / 60}")
+    print(f"duration of mesurment in h: {duration / 3600}")
     print("------ num_windows before and after factoring overlap------")
-    print(num_windows)
+    print(f"num win: {num_windows}")
     # num_win for slinding window with overlap 50%
     overlap = 2
     num_windows = num_windows * overlap + 1
     if num_windows * window_size / overlap > duration:
         num_windows = num_windows - 1
-    print(num_windows)
+    print(f"num win: {num_windows}")
     cut_off = int((window_size / (overlap * 2) * fs_radar))
 
 
@@ -132,7 +134,7 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
         )
        # print("window size" + str((radar_data.index[end_sample_radar]-radar_data.index[start_sample_radar]).total_seconds()))
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
-
+       # print(f"radar slice len: {len(radar_slice)}")
         processing.setRadarSamples(radar_slice)
         processing.predictBeats()
 
@@ -213,7 +215,8 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     print(num_windows)
     print("----win_loop_start----")
     array_middel_sample_radar = np.zeros(num_windows, dtype=int)
-    magic_minus = 1
+    magic_minus = 1 # counter to get las full window in the following windows at end of data
+    rri_under_11 = 0 # counter for hrv_dfa error
     for wind_ctr in range(num_windows):
         #window stays as long as 30 sec. epoch(step size) is smaller as the half of the window size at the same value
         # just when epoch is biber than half the window size the window is shifted by 30sec of the step size
@@ -264,6 +267,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
             print(f"hrv_nonlin: {hrv_nonlin}")
         except:
             hrv_nonlin = pd.DataFrame(np.nan, index=[0], columns=['HRV_SD1'])
+            rri_under_11 = rri_under_11 + 1
             print(f"hrv nonlin error in window {wind_ctr}, replaced with nan")
 
         print(f"----------------------------------all hrv in win{wind_ctr} ------------------------------------------------------")
@@ -271,12 +275,13 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
         print(f"hrv_window: {hrv_window}")
         d[wind_ctr] = hrv_window
         #print(f"-------------------------------------hrv in d with win index {wind_ctr}--------------------------------------------------")
-        print(f"len of d{len(d)}")
+        print(f"len of d {len(d)}")
         temp_val[wind_ctr] = pd.DataFrame({"time": hrv_input_peak["time"].loc[int(np.ceil((wind_ctr * (window_step // overlap) * fs_radar)))]},
                                               index=[wind_ctr])
         #print(f"temp_val[wind_ctr], middel time: {temp_val[wind_ctr]}")
     print("-----------------------win_loop_end-------------------------------")
-    print(f"len of d{len(d)}")
+    print(f"len of d {len(d)}")
+    print(f"rri under 11 so occuring error, in non_lin dfa: {rri_under_11}")
     if len(d) == num_windows:
         print("all windows are calculated")
     else:
