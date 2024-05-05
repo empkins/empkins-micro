@@ -15,7 +15,7 @@ from scipy.signal import find_peaks
 from numpy.lib.stride_tricks import sliding_window_view
 import neurokit2 as nk
 import time
-
+import traceback
 from empkins_micro.emrad.utils import input_conversion, correct_peaks
 
 Radar_Freq_Hz = 61 * 1e9  # 122 GHz
@@ -136,7 +136,14 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
        # print(f"radar slice len: {len(radar_slice)}")
         processing.setRadarSamples(radar_slice)
-        processing.predictBeats()
+
+        try:
+            processing.predictBeats()
+        except:
+            print("Error in processing.predictBeats()")
+            print("errror in window: " + str(wind_ctr))
+            traceback.print_exc()
+            continue
 
         predicted_beats = processing.getBeats()[["predicted_beats"]]
 
