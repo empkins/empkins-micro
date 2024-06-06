@@ -150,7 +150,17 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
         if start_sample_radar + cut_off + 1 == min(int(np.ceil((wind_ctr-1) * (window_size / overlap) * fs_radar)) + int(np.floor(fs_radar * window_size)) - cut_off,
                                                 len(radar_data)):
             data_out[wind_ctr] = predicted_beats[cut_off+2:-cut_off]
-        data_out[wind_ctr] = predicted_beats[cut_off+1:-cut_off]
+
+        if wind_ctr == 0:
+            print(f"wind ctr: {wind_ctr}")
+            data_out[wind_ctr] = predicted_beats[:-cut_off]
+            print(f"len of data_out: {data_out[wind_ctr].iloc[0]}")
+        if wind_ctr == num_windows-1:
+            print(f"wind ctr: {wind_ctr}")
+            data_out[wind_ctr] = predicted_beats[cut_off+1:]
+            print(f"len of data_out: {data_out[wind_ctr].iloc[-1]}")
+        if wind_ctr != 0 and wind_ctr != num_windows-1:
+            data_out[wind_ctr] = predicted_beats[cut_off+1:-cut_off]
 
     if len(data_out) > 1:
         data_concat = pd.concat(data_out, names=["window_id"])
