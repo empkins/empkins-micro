@@ -29,7 +29,7 @@ DETECTIONTHRESHOLD = 0.05
 
 def get_rpeaks(
     radar_data_1: pd.DataFrame, radar_data_2: pd.DataFrame, radar_data_3: pd.DataFrame, radar_data_4: pd.DataFrame,
-    fs_radar: float, window_size: int, threshold: float):
+    fs_radar: float, window_size: int, height: float):
     #-> bp.utils.datatype_helper.RPeakDataFrame:
 
     print("----- get lstm rad 1 ------")
@@ -62,16 +62,16 @@ def get_rpeaks(
 
     print("------- find peaks of sum lstm --------")
     start = time.time_ns()
-    radar_beats, beats_prop = get_pred_peaks(lstm_sum, fs_radar, threshold)
+    radar_beats, beats_prop = get_pred_peaks(lstm_sum, fs_radar, height=height)
     end = time.time_ns()
     print('time for get_pred_peaks: ' + str((end - start) / (10 ** 9)) + ' s, in min: ' + str(((end - start) / (10 ** 9)) / 60))
 
     return radar_beats, lstm_sum
 
-def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, threshold: float
+def get_pred_peaks(lstm_sum: pd.DataFrame, fs_radar: float, height: float,distance:float=0.3,
                    ):#-> bp.utils.datatype_helper.RPeakDataFrame:
     radar_beats,peak_prop = find_peaks(
-        lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar, width=None, prominence=None
+        lstm_sum.predicted_beats, height=height, threshold= None, distance=distance * fs_radar, width=None, prominence=None
     )
     #radar_beats = find_peaks(
     #    lstm_sum.predicted_beats, height=threshold, distance=0.3 * fs_radar
@@ -151,6 +151,7 @@ def get_lstm(radar_data: pd.DataFrame, fs_radar: float, window_size: int):
                                                 len(radar_data)):
             data_out[wind_ctr] = predicted_beats[cut_off+2:-cut_off]
 
+        # adding the cut off values to the first and last window,
         if wind_ctr == 0:
             print(f"wind ctr: {wind_ctr}")
             data_out[wind_ctr] = predicted_beats[:-cut_off]
@@ -313,7 +314,7 @@ def get_hrv_featurs(window_size:int,window_step:int, hrv_input_peak:pd.DataFrame
     #print(conc_d)
     data_concat = pd.concat([temp, conc_d], axis=1, names=["window_id", "time"])
     data_concat.index.names = ['window_id']
-    data_concat.dropna(axis=1,how='all',inplace=True)
+    data_concat.dropna(axis=1,how='all',inplace=True) # drop columns with all nan
     #data_concat = data_concat.replace(np.nan, 0)
     return data_concat
 
