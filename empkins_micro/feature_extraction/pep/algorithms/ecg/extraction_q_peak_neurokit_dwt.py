@@ -41,38 +41,55 @@ class QPeakExtraction_NeurokitDwt(BaseExtraction):
         # some neurokit functions (for example ecg_delineate()) don't work with r-peaks input as Series, so list instead
         r_peaks = list(heartbeats["r_peak_sample"])
 
-        _, waves = nk.ecg_delineate(signal_clean, rpeaks=r_peaks, sampling_rate=sampling_rate_hz, method="dwt",
-                                    show=False, show_type="peaks")  # show can also be set to False
+
+        _, waves = nk.ecg_delineate(
+            signal_clean, rpeaks=r_peaks, sampling_rate=sampling_rate_hz, method="dwt", show=False, show_type="peaks"
+        )  # show can also be set to False
 
         extracted_q_peaks = waves["ECG_Q_Peaks"]
 
+       
         # find heartbeat to which Q-peak belongs and save Q-peak position in corresponding row
         for idx, q in enumerate(extracted_q_peaks):
-
             # for some heartbeats, no Q can be detected, will be NaN in resulting df
+            if heartbeats.loc[idx, "start_sample"] > q:
+
+                q = np.NaN
             if np.isnan(q):
+
                 heartbeats_no_q.append(idx)
             else:
-                heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index[0]
+                heartbeat_idx = heartbeats.loc[(heartbeats["start_sample"] < q) & (q < heartbeats["end_sample"])].index[
+                    0
+                ]
+
+
+                if heartbeat_idx in heartbeats_no_q:
+
+                    continue
 
                 # Q occurs after R, which is not valid
                 if heartbeats["r_peak_sample"].loc[heartbeat_idx].item() < q:
+
                     heartbeats_q_after_r.append(heartbeat_idx)
                     q_peaks.at[heartbeat_idx, "q_peak"] = np.NaN
 
                 # valid Q-peak found
                 else:
+                    
                     q_peaks.at[heartbeat_idx, "q_peak"] = q
-
+        
         # inform user about missing Q-values
         if q_peaks.isna().sum()[0] > 0:
             nan_rows = q_peaks[q_peaks["q_peak"].isna()]
             nan_rows.drop(index=heartbeats_q_after_r, inplace=True)
             nan_rows.drop(index=heartbeats_no_q, inplace=True)
-            warnings.warn(f"No Q-peak detected in {q_peaks.isna().sum()[0]} heartbeats (for heartbeats "
-                          f"{heartbeats_no_q} the neurokit algorithm was not able to detect a Q-peak; for heartbeats "
-                          f"{heartbeats_q_after_r} the detected Q is invalid because it occurs after R; for "
-                          f"{nan_rows.index.values} apparently none of the found Q-peaks were within these heartbeats)")
+            warnings.warn(
+                f"No Q-peak detected in {q_peaks.isna().sum()[0]} heartbeats (for heartbeats "
+                f"{heartbeats_no_q} the neurokit algorithm was not able to detect a Q-peak; for heartbeats "
+                f"{heartbeats_q_after_r} the detected Q is invalid because it occurs after R; for "
+                f"{nan_rows.index.values} apparently none of the found Q-peaks were within these heartbeats)"
+            )
 
         self.points_ = q_peaks
         return self

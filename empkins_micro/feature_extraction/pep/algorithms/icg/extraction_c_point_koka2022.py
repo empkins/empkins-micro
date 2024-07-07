@@ -34,7 +34,7 @@ class CPointExtraction_Koka2022(BaseExtraction):
         # result df
         c_points = pd.DataFrame(index=heartbeats.index, columns=["c_point"])
 
-
+        
         # search C-point for each heartbeat of the given signal
         for idx, data in heartbeats.iterrows():
 
@@ -46,9 +46,9 @@ class CPointExtraction_Koka2022(BaseExtraction):
             # calculate R-peak position relative to start of current heartbeat
             heartbeat_r_peak = data["r_peak_sample"] - heartbeat_start
 
-            c_point = nk.ecg_peaks(heartbeat_icg_der, sampling_rate_hz, method='koka2022')
-
-            c_points['c_point'].iloc[idx] = c_point
-
+            c_point = nk.ecg_peaks(heartbeat_icg_der, sampling_rate_hz, method='koka2022')[1]["ECG_R_Peaks"][0]
+           
+            c_points['c_point'].iloc[idx] = c_point + heartbeat_start
+        #print(c_points)
         self.points_ = c_points
         return self

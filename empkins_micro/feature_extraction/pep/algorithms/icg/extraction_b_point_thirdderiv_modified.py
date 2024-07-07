@@ -6,8 +6,9 @@ import pandas as pd
 from tpcp import Parameter, make_action_safe
 
 from empkins_micro.feature_extraction.pep.algorithms.base_extraction import BaseExtraction
-from empkins_micro.feature_extraction.pep.algorithms.icg.extraction_c_point_scipy_findpeaks import \
-    CPointExtraction_ScipyFindPeaks
+from empkins_micro.feature_extraction.pep.algorithms.icg.extraction_c_point_scipy_findpeaks import (
+    CPointExtraction_ScipyFindPeaks,
+)
 
 
 class BPointExtraction_ThirdDeriv(BaseExtraction):
@@ -22,10 +23,10 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
     icg_derivatives_: Dict[int, pd.DataFrame]
 
     def __init__(
-            self,
-            window_b_detection_ms: Optional[Union[str, int]] = 150,
-            save_icg_derivatives: Optional[bool] = False,
-            correct_outliers: Optional[bool] = False
+        self,
+        window_b_detection_ms: Optional[Union[str, int]] = 150, #150
+        save_icg_derivatives: Optional[bool] = False,
+        correct_outliers: Optional[bool] = False,
     ):
         """initialize new BPointExtraction_ThirdDeriv algorithm instance
 
@@ -64,12 +65,13 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
         """
 
         # result dfs
+
         b_points = pd.DataFrame(index=heartbeats.index, columns=["b_point"])
         icg_derivatives = {}
         if self.save_icg_derivatives:
-            icg_derivatives = {k: pd.DataFrame(columns=["icg_der", "icg_2nd_der", "icg_3rd_der"]) for k in
-                               heartbeats.index}
-
+            icg_derivatives = {
+                k: pd.DataFrame(columns=["icg_der", "icg_2nd_der", "icg_3rd_der"]) for k in heartbeats.index
+            }
 
         # used subsequently to store ids of heartbeats where no B was detected because there was no C
         # (Bs should always be found, since they are set to the max of the 3rd derivative, and there is always a max)
@@ -79,7 +81,6 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
         # search B-point for each heartbeat of the given signal
         for idx, data in heartbeats.iterrows():
-
             # slice signal for current heartbeat
             heartbeat_start = data["start_sample"]
             heartbeat_end = data["end_sample"]
@@ -101,22 +102,27 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
 
             # C-point can be NaN, then, extraction of B is not possible, so B is set to NaN
             if np.isnan(heartbeat_c_point):
+
                 heartbeats_no_c_b.append(idx)
                 b_points.at[idx, "b_point"] = np.NaN
                 continue
 
             # set window end to C-point position and set window start according to specified method
             window_end = heartbeat_c_point
+
             if self.window_b_detection_ms == "R":
                 window_start = heartbeat_r_peak
+
             elif isinstance(self.window_b_detection_ms, int):
                 window_length_samples = int((self.window_b_detection_ms / 1000) * sampling_rate_hz)
                 window_start = heartbeat_c_point - window_length_samples
+
             else:
                 raise ValueError("That should never happen!")
 
             # might happen for wrongly detected Cs (search window becomes invalid)
             if window_start < 0 or window_end < 0:
+               
                 heartbeats_no_b.append(idx)
                 b_points.at[idx, "b_point"] = np.NaN
                 continue
@@ -126,7 +132,7 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
             b_window_max = np.argmax(heartbeat_b_window)
             b_point = b_window_max + window_start + heartbeat_start
 
-            '''
+            """
             if not self.correct_outliers:
                 if b_point < data['r_peak_sample']:
                     b_points['b_point'].iloc[idx] = np.NaN
@@ -136,8 +142,8 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
                     b_points['b_point'].iloc[idx] = b_point
             else:
                 b_points['b_point'].iloc[idx] = b_point
-            '''
-            b_points['b_point'].iloc[idx] = b_point
+            """
+            b_points["b_point"].iloc[idx] = b_point
 
         # inform user about missing B-points
         if len(heartbeats_no_c_b) > 0 or len(heartbeats_no_b) > 0:
@@ -145,10 +151,12 @@ class BPointExtraction_ThirdDeriv(BaseExtraction):
             n = len(nan_rows)
             nan_rows.drop(index=heartbeats_no_c_b, inplace=True)
             nan_rows.drop(index=heartbeats_no_b, inplace=True)
-            warnings.warn(f"No B-point detected in {n} heartbeats (for heartbeats {heartbeats_no_c_b} no B "
-                          f"could be extracted, because there was no C; for heartbeats {heartbeats_no_b} the search "
-                          f"window was invalid probably due to wrongly detected C; for heartbeats "
-                          f"{nan_rows.index.values} apparently also no B was found for some other reason?!)")
+            warnings.warn(
+                f"No B-point detected in {n} heartbeats (for heartbeats {heartbeats_no_c_b} no B "
+                f"could be extracted, because there was no C; for heartbeats {heartbeats_no_b} the search "
+                f"window was invalid probably due to wrongly detected C; for heartbeats "
+                f"{nan_rows.index.values} apparently also no B was found for some other reason?!)"
+            )
 
         self.points_ = b_points
         return self
