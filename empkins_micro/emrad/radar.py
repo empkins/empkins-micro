@@ -4,16 +4,18 @@ Created on Sun Jun 12 16:04:08 2022
 
 @author: nonev
 """
+import os
 from pathlib import Path
 
+import biopsykit as bp
 import numpy as np
 import pandas as pd
 import scipy.signal
 import tensorflow as tf
-import biopsykit as bp
 from scipy.signal import find_peaks
+from tqdm import tqdm
 
-from empkins_micro.emrad.utils import input_conversion, correct_peaks
+from empkins_micro.emrad.utils import correct_peaks, input_conversion
 
 Radar_Freq_Hz = 61 * 1e9  # 122 GHz
 C_Light_Air_mps = 299708516  # reduzierte Lichtgeschwindigkeit in bodennaher Luft
@@ -24,18 +26,35 @@ Minimumperiod = 60 / MAXBPM
 DETECTIONTHRESHOLD = 0.05
 
 
-def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> bp.utils.datatype_helper.RPeakDataFrame:
-
+def get_peak_probabilities(
+    radar_data: pd.DataFrame, fs_radar: float, window_size: int,
+) -> bp.utils.datatype_helper.RPeakDataFrame:
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
 
+    print("------ duration ------")
+    print(f"duration of mesurment in sec: {duration}")
+    print(f"duration of mesurment in min: {duration / 60}")
+    print(f"duration of mesurment in h: {duration / 3600}")
+    print("------ num_windows before and after factoring overlap------")
+    print(f"num win: {num_windows}")
+    # num_win for sliding window with overlap 50%
+    overlap = 2
+    num_windows = num_windows * overlap + 1
+
+    if num_windows * window_size / overlap > duration:
+        num_windows = num_windows - 1
+    print(f"num win: {num_windows}")
+
+    cut_off_samples = int((window_size / (overlap * 2) * fs_radar))
+
     processing = Processing(FS=fs_radar, window_size=window_size)
 
-    for wind_ctr in range(num_windows):
-
-        start_sample_radar = round(wind_ctr * window_size * fs_radar)
-        end_sample_radar = min(start_sample_radar + round(fs_radar * window_size), len(radar_data))
+    for wind_ctr in tqdm(range(num_windows)):
+        # shift the window by overlap of the window size
+        start_sample_radar = int(np.ceil(wind_ctr * (window_size / overlap) * fs_radar))
+        end_sample_radar = min(start_sample_radar + int(np.floor(fs_radar * window_size)), len(radar_data))
 
         radar_slice = radar_data.iloc[start_sample_radar:end_sample_radar]
 
@@ -43,14 +62,52 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
         processing.predictBeats()
 
         predicted_beats = processing.getBeats()[["predicted_beats"]]
-        data_out[wind_ctr] = predicted_beats
+
+        if start_sample_radar + cut_off_samples + 1 == min(
+            int(np.ceil((wind_ctr - 1) * (window_size / overlap) * fs_radar))
+            + int(np.floor(fs_radar * window_size))
+            - cut_off_samples,
+            len(radar_data),
+        ):
+            data_out[wind_ctr] = predicted_beats[cut_off_samples + 2 : -cut_off_samples]
+
+        # adding the cut-off values to the first and last window,
+        if wind_ctr == 0:
+            print(f"wind ctr: {wind_ctr}")
+            data_out[wind_ctr] = predicted_beats[:-cut_off_samples]
+            print(f"len of data_out: {data_out[wind_ctr].iloc[0]}")
+        if wind_ctr == num_windows - 1:
+            print(f"wind ctr: {wind_ctr}")
+            data_out[wind_ctr] = predicted_beats[cut_off_samples + 1 :]
+            print(f"len of data_out: {data_out[wind_ctr].iloc[-1]}")
+        if wind_ctr != 0 and wind_ctr != num_windows - 1:
+            data_out[wind_ctr] = predicted_beats[cut_off_samples + 1 : -cut_off_samples]
 
     if len(data_out) > 1:
-        data_concat = pd.concat(data_out, names=["participant", "window_id"])
+        data_concat = pd.concat(data_out, names=["window_id"])
     else:
         data_concat = pd.DataFrame(predicted_beats)
 
-    radar_beats = find_peaks(data_concat.predicted_beats, height=0.2, distance=0.3 * fs_radar)[0]
+    data_concat.index = data_concat.index.droplevel(0)
+
+    return data_concat
+
+def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.2, distance=0.3):
+
+    data_concat = pd.DataFrame()
+    for radar_id in r_peak_probabilities.keys():
+        # Concatenate the DataFrames along the columns
+        data_concat = pd.concat([data_concat, r_peak_probabilities[radar_id]], axis=1)
+
+    # Get the maximum value for each row
+    max_values = data_concat.max(axis=1)
+
+    # If you want to keep the DataFrame format, you can reshape the result
+    lstm_output_max = pd.DataFrame(max_values, columns=['LSTM_MAX'])
+
+    lstm_output_max_smooth = lstm_output_max.rolling(100, center=True).mean()
+
+    radar_beats = find_peaks(lstm_output_max_smooth.LSTM_MAX, height=threshold, distance=distance * fs_radar)[0]
     radar_beats = pd.DataFrame(radar_beats, index=data_concat.index[radar_beats], columns=["peak_idx"])
 
     radar_beats["R_Peak_Quality"] = np.ones(len(radar_beats))  # this does not make sense, but is required by biopsykit
@@ -61,12 +118,14 @@ def get_rpeaks(radar_data: pd.DataFrame, fs_radar: float, window_size: int) -> b
     # ensure equal length by filling the last value with the average RR interval
     radar_beats.loc[radar_beats.index[-1], "RR_Interval"] = radar_beats["RR_Interval"].mean()
 
-    bp.signals.ecg.EcgProcessor.correct_outlier(rpeaks=radar_beats, sampling_rate=fs_radar,
-                                                imputation_type="moving_average",
-                                                outlier_correction=["physiological", "statistical_rr",
-                                                                    "statistical_rr_diff"])
+    bp.signals.ecg.EcgProcessor.correct_outlier(
+        rpeaks=radar_beats,
+        sampling_rate=fs_radar,
+        imputation_type="moving_average",
+        outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
+    )
 
-    return radar_beats
+    return radar_beats, lstm_output_max_smooth
 
 
 # tf.config.threading.set_intra_op_parallelism_threads(1)
@@ -109,7 +168,6 @@ class TemporalFilters:
 
 class Processing:
     def create_dataset(self, X, time_steps=1, stepsize=1):
-
         Xs = []
 
         for i in range(0, len(X) - time_steps, stepsize):
@@ -120,7 +178,6 @@ class Processing:
         return np.array(Xs)
 
     def __init__(self, FS, window_size):
-
         self.filter_fun = TemporalFilters()
         self.FS_Radar = FS
         self.window_size = window_size
@@ -144,13 +201,13 @@ class Processing:
         self.rad_q_dc = np.zeros(length_decimated)
         self.angle = np.zeros(length_decimated)
 
-        path = Path(__file__).parent / "model.tf"
+        path = Path(__file__).parent / "my_model.keras"
+
         self.model = tf.keras.models.load_model(str(path))
         self.predictedBeats = np.zeros(self.num_samples)
         self.respBeats = []
 
     def predictBeats(self):
-
         self.angle = np.diff(np.unwrap(np.arctan2(self.rad_i, self.rad_q)), axis=0)
 
         # Radar Filtering and Feature Generation
@@ -210,18 +267,13 @@ class Processing:
         if not self.beatpeaks.any():
             self.beatpeaks = np.array([])
         else:
-            temppeaks = input_conversion(
-                self.beatpeaks.astype(int), input_type="peaks_idx", output_type="peaks"
-            )
-            corrpeaks = correct_peaks(
-                temppeaks, input_type="peaks", missed_correction=False, extra_correction=False
-            )
+            temppeaks = input_conversion(self.beatpeaks.astype(int), input_type="peaks_idx", output_type="peaks")
+            corrpeaks = correct_peaks(temppeaks, input_type="peaks", missed_correction=False, extra_correction=False)
             temp = np.where(corrpeaks["clean_peaks"])[0] * 2
             # temp = systole.utils.input_conversion(corrpeaks,input_type='peaks',output_type='peaks_idx')*2
             self.beatpeaks = temp
 
     def setRadarSamples(self, samples):
-
         self.radarWindowedSamples = samples
 
         # print(self.radarWindowedSamples[:, "I"])
