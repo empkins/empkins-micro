@@ -5,10 +5,10 @@ description = "A Python package to work with EmpkinS Micro data."
 authors = ["Robert Richer <robert.richer@fau.de>", "Luca Abel <luca.abel@fau.de>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
-biopsykit = { git = "https://github.com/mad-lab-fau/BioPsyKit.git", branch = "main", extras = ["jupyter"] }
+python = ">=3.9,<3.11"
 empkins-io = { path = "../empkins-io", develop = true }
 numpy = "^1.24.3"
+scipy = "<1.12.0"
 
 "pyannote.audio" = { version = "^2.1.1", optional = true }
 torch = { version = "<2", optional = true }
@@ -22,9 +22,16 @@ collection = { version = "^0.1.6", optional = true }
 tensorflow-macos = { version = "2.10.0", optional = true, platform = "darwin" }
 pywavelets = { version = "^1.4.1", optional = true }
 
+py-feat = { version = "0.5.1", optional = true }
+opencv-python = { version = "*", optional = true }
+smallestenclosingcircle = { version = "^0.0.1", optional = true }
+mediapipe = { version = "^0.10.8", optional = true }
+tables = { version = "3.7.0", optional = true }
+
 [tool.poetry.extras]
 audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub", "wave", "contextlib2", "collection", "torch"]
 radar = ["tensorflow-macos", "pywavelets"]
+digital_biomarker = ["torch", "py-feat", "opencv-python", "smallestenclosingcircle", "mediapipe", "tables"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
