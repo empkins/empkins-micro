@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import torch
 from scipy.io import wavfile
 
 from empkins_micro.utils._types import path_t
@@ -19,7 +20,12 @@ class SpeakerDiarization:
     _sampling_rate_hz: int
     _min_segment_length_sec: float
 
-    def __init__(self, audio_path: path_t, pyannote_auth_token: str, min_segment_length_sec: Optional[float] = 0.3):
+    def __init__(
+        self,
+        audio_path: path_t,
+        pyannote_auth_token: str,
+        min_segment_length_sec: Optional[float] = 0.3,
+    ):
         """Initialize speaker diarization class.
 
         Parameters
@@ -66,13 +72,16 @@ class SpeakerDiarization:
         try:
             from pyannote.audio import Pipeline
         except ModuleNotFoundError as e:
-            raise ModuleNotFoundError("Module 'pyannote.audio' not found. Please install it manually or "
-                                      "install 'empkins-micro' with 'audio' extras via "
-                                      "'poetry install empkins_micro -E audio'") from e
+            raise ModuleNotFoundError(
+                "Module 'pyannote.audio' not found. Please install it manually or "
+                "install 'empkins-micro' with 'audio' extras via "
+                "'poetry install empkins_micro -E audio'"
+            ) from e
         # pyannote pipeline for speaker diarization
         pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization@2.1", use_auth_token=self._pyannote_auth_token
+            "pyannote/speaker-diarization-3.1", use_auth_token=self._pyannote_auth_token
         )
+        pipeline.to(torch.device("mps"))
         diarization = pipeline(self._audio_path)  # apply pipeline to audio file
 
         speaker_data = [
@@ -84,7 +93,9 @@ class SpeakerDiarization:
         return speaker_data
 
     @staticmethod
-    def _clean_diarization_output(speaker_data: pd.DataFrame, min_segment_length: float) -> pd.DataFrame:
+    def _clean_diarization_output(
+        speaker_data: pd.DataFrame, min_segment_length: float
+    ) -> pd.DataFrame:
         """Clean speaker diarization output.
 
         Cleans the speaker diarization output by removing segments that are shorter than the minimum segment length.
@@ -101,12 +112,16 @@ class SpeakerDiarization:
         :class:`pd.DataFrame`
 
         """
-        data = speaker_data.assign(**{"length": speaker_data["stop"] - speaker_data["start"]})
+        data = speaker_data.assign(
+            **{"length": speaker_data["stop"] - speaker_data["start"]}
+        )
 
         indices = np.where(data["length"] < min_segment_length)[
             0
         ]  # identify segments smaller than the given minimum length
-        data = data.drop(index=indices, axis=0).reset_index(drop=True)  # drop identified segments
+        data = data.drop(index=indices, axis=0).reset_index(
+            drop=True
+        )  # drop identified segments
         return data
 
     @staticmethod
@@ -119,7 +134,9 @@ class SpeakerDiarization:
     #    file_name = self.audio_path.stem  # original file name, used for saving the diarization as file
     # df.to_csv(file_name"_diarization" + ".txt")
 
-    def _speaker_one_hot_encoding(self, speaker_data: pd.DataFrame, test_speaker: str) -> pd.DataFrame:
+    def _speaker_one_hot_encoding(
+        self, speaker_data: pd.DataFrame, test_speaker: str
+    ) -> pd.DataFrame:
         speaker = np.unique(speaker_data["speaker"])  # array with speaker names
         # speaker_panel includes all speakers which are not the test_speaker
         speaker_panel = speaker[speaker != test_speaker]
@@ -132,20 +149,26 @@ class SpeakerDiarization:
         for i, row in speaker_data.iterrows():
             current_speaker = row["speaker"]
             speaker_one_hot.loc[row["start"] : row["stop"], current_speaker] = 1
-            speaker_one_hot.loc[row["start"] : row["stop"], "SPEAKER_PANEL"] = current_speaker in speaker_panel
+            speaker_one_hot.loc[row["start"] : row["stop"], "SPEAKER_PANEL"] = (
+                current_speaker in speaker_panel
+            )
 
         speaker_one_hot = speaker_one_hot.fillna(0).astype(int)
         return speaker_one_hot
 
     @staticmethod
-    def _clean_speaker_overlap(speaker_one_hot: pd.DataFrame, test_speaker: str) -> pd.DataFrame:
+    def _clean_speaker_overlap(
+        speaker_one_hot: pd.DataFrame, test_speaker: str
+    ) -> pd.DataFrame:
         # if 2 or more speakers are detected at the same time -> set test_speaker to zero
         data = speaker_one_hot.copy()
         data.loc[speaker_one_hot.sum(axis=1) > 1, test_speaker] = 0
         return data
 
     @staticmethod
-    def _update_speaker_segments(speaker_data: pd.DataFrame, speaker_one_hot: pd.DataFrame, test_speaker: str):
+    def _update_speaker_segments(
+        speaker_data: pd.DataFrame, speaker_one_hot: pd.DataFrame, test_speaker: str
+    ):
         data_new_segments = []
         # identify test_speaker segments
         speaker_list = [test_speaker, "SPEAKER_PANEL_INV"]
@@ -160,12 +183,16 @@ class SpeakerDiarization:
             data["speaker"] = speaker
             data_new_segments.append(data)
 
-        data_new_segments = data_new_segments + [speaker_data[speaker_data["speaker"] != test_speaker]]
+        data_new_segments = data_new_segments + [
+            speaker_data[speaker_data["speaker"] != test_speaker]
+        ]
         data_new_segments = pd.concat(data_new_segments)
         data_new_segments = data_new_segments.assign(
             **{"length": data_new_segments["stop"] - data_new_segments["start"]}
         )
-        data_new_segments = data_new_segments.sort_values(by="start").reset_index(drop=True)
+        data_new_segments = data_new_segments.sort_values(by="start").reset_index(
+            drop=True
+        )
         return data_new_segments
 
     @staticmethod
@@ -174,25 +201,46 @@ class SpeakerDiarization:
             data.loc[:, "SPEAKER_PANEL"] = 1
         return data
 
-    def _group_diarization(self, speaker_one_hot: pd.DataFrame, test_speaker: str) -> pd.DataFrame:
+    def _group_diarization(
+        self, speaker_one_hot: pd.DataFrame, test_speaker: str
+    ) -> pd.DataFrame:
         speaker_one_hot = speaker_one_hot.assign(
-            **{"group_id": speaker_one_hot[[test_speaker]].diff().fillna(0).astype(int).abs().cumsum()}
+            **{
+                "group_id": speaker_one_hot[[test_speaker]]
+                .diff()
+                .fillna(0)
+                .astype(int)
+                .abs()
+                .cumsum()
+            }
         )
 
         speaker_one_hot = speaker_one_hot.groupby("group_id", group_keys=False).apply(
             lambda df: self._apply_speaker_encoding(df, test_speaker)
         )
-        speaker_one_hot["SPEAKER_PANEL_INV"] = 1 - speaker_one_hot["SPEAKER_PANEL"]  # group test subject segments
+        speaker_one_hot["SPEAKER_PANEL_INV"] = (
+            1 - speaker_one_hot["SPEAKER_PANEL"]
+        )  # group test subject segments
 
         return speaker_one_hot
 
     def speaker_diarization(self) -> pd.DataFrame:
         speaker_data = self._speaker_diarization_pyannote()
-        speaker_data = self._clean_diarization_output(speaker_data, min_segment_length=self._min_segment_length_sec)
+        speaker_data = self._clean_diarization_output(
+            speaker_data, min_segment_length=self._min_segment_length_sec
+        )
         test_speaker = self._identify_test_speaker(speaker_data)
-        speaker_one_hot_data = self._speaker_one_hot_encoding(speaker_data, test_speaker)
-        speaker_one_hot_data = self._clean_speaker_overlap(speaker_one_hot_data, test_speaker)
-        speaker_one_hot_data = self._group_diarization(speaker_one_hot_data, test_speaker)
-        speaker_data = self._update_speaker_segments(speaker_data, speaker_one_hot_data, test_speaker)
+        speaker_one_hot_data = self._speaker_one_hot_encoding(
+            speaker_data, test_speaker
+        )
+        speaker_one_hot_data = self._clean_speaker_overlap(
+            speaker_one_hot_data, test_speaker
+        )
+        speaker_one_hot_data = self._group_diarization(
+            speaker_one_hot_data, test_speaker
+        )
+        speaker_data = self._update_speaker_segments(
+            speaker_data, speaker_one_hot_data, test_speaker
+        )
         speaker_data.index.name = "segment_id"
         return speaker_data
