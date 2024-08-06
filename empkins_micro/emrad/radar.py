@@ -36,9 +36,9 @@ def get_peak_probabilities(
     print("------ duration ------")
     print(f"duration of mesurment in sec: {duration}")
     print(f"duration of mesurment in min: {duration / 60}")
-    print(f"duration of mesurment in h: {duration / 3600}")
     print("------ num_windows before and after factoring overlap------")
     print(f"num win: {num_windows}")
+
     # num_win for sliding window with overlap 50%
     overlap = 2
     num_windows = num_windows * overlap + 1
@@ -73,13 +73,9 @@ def get_peak_probabilities(
 
         # adding the cut-off values to the first and last window,
         if wind_ctr == 0:
-            print(f"wind ctr: {wind_ctr}")
             data_out[wind_ctr] = predicted_beats[:-cut_off_samples]
-            print(f"len of data_out: {data_out[wind_ctr].iloc[0]}")
         if wind_ctr == num_windows - 1:
-            print(f"wind ctr: {wind_ctr}")
             data_out[wind_ctr] = predicted_beats[cut_off_samples + 1 :]
-            print(f"len of data_out: {data_out[wind_ctr].iloc[-1]}")
         if wind_ctr != 0 and wind_ctr != num_windows - 1:
             data_out[wind_ctr] = predicted_beats[cut_off_samples + 1 : -cut_off_samples]
 
@@ -92,7 +88,7 @@ def get_peak_probabilities(
 
     return data_concat
 
-def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.2, distance=0.3):
+def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.2, distance=0.3, outlier_correction=True):
 
     data_concat = pd.DataFrame()
     for radar_id in r_peak_probabilities.keys():
@@ -118,12 +114,13 @@ def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.2, dist
     # ensure equal length by filling the last value with the average RR interval
     radar_beats.loc[radar_beats.index[-1], "RR_Interval"] = radar_beats["RR_Interval"].mean()
 
-    bp.signals.ecg.EcgProcessor.correct_outlier(
-        rpeaks=radar_beats,
-        sampling_rate=fs_radar,
-        imputation_type="moving_average",
-        outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
-    )
+    if outlier_correction:
+        bp.signals.ecg.EcgProcessor.correct_outlier(
+            rpeaks=radar_beats,
+            sampling_rate=fs_radar,
+            imputation_type="moving_average",
+            outlier_correction=["physiological", "statistical_rr", "statistical_rr_diff"],
+        )
 
     return radar_beats, lstm_output_max_smooth
 
