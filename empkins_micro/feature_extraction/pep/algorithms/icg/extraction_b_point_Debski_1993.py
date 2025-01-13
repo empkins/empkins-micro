@@ -58,11 +58,12 @@ class BPointExtractionDebski(BaseExtraction):
         # get the r_peak locations from the heartbeats dataframe and search for entries containing NaN
         r_peaks = heartbeats['r_peak_sample']
         check_r_peaks = np.isnan(r_peaks.values)
-
+        
         # get the c_point locations from the c_points dataframe and search for entries containing NaN
         c_points = c_points['c_point']
         check_c_points = np.isnan(c_points.values.astype(float))
-
+        
+       
         # Compute the second derivative of the ICG-signal
         icg_2nd_der = np.gradient(signal_clean)
 
