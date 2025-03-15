@@ -1,43 +1,50 @@
-[tool.poetry]
+[project]
 name = "empkins-micro"
 version = "0.1.0"
 description = "A Python package to work with EmpkinS Micro data."
-authors = ["Robert Richer <robert.richer@fau.de>", "Luca Abel <luca.abel@fau.de>"]
+authors = [
+    { name = "Robert Richer", email = "robert.richer@fau.de" },
+    { name = "Luca Abel", email = "luca.abel@fau.de" },
+]
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "empkins-io",
+    "pepbench",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-#biopsykit = { git = "https://github.com/mad-lab-fau/BioPsyKit.git", branch = "main" }
-#empkins-io = { git = "https://github.com/empkins/empkins-io.git", branch = "main" }
-empkins-io = { path = "../empkins-io", develop = true }
-pepbench = { path = "../pepbench", develop = true }
+[project.optional-dependencies]
+audio = [
+    "pyannote.audio>=3.0.1,<4",
+    "praat-parselmouth>=0.4.3,<0.5",
+    "webrtcvad>=2.0.10,<3",
+    "pydub>=0.25.1,<0.26",
+    "wave>=0.0.2,<0.0.3",
+    "contextlib2>=21.6.0,<22",
+    "collection>=0.1.6,<0.2",
+    "torch>=2.0.0,<3",
+]
+radar = [
+    "tensorflow-macos==2.10.0 ; sys_platform == 'darwin'",
+    "pywavelets>=1.4.1,<2",
+]
 
-"pyannote.audio" = { version = "^2.1.1", optional = true }
-torch = { version = "<2", optional = true }
-praat-parselmouth = { version = "^0.4.3", optional = true }
-webrtcvad = { version = "^2.0.10", optional = true }
-pydub = { version = "^0.25.1", optional = true }
-wave = { version = "^0.0.2", optional = true }
-contextlib2 = { version = "^21.6.0", optional = true }
-collection = { version = "^0.1.6", optional = true }
+[dependency-groups]
+dev = [
+    "pytest~=5.2",
+    "poethepoet>=0.10.0,<0.11",
+]
 
-tensorflow-macos = { version = "2.10.0", optional = true, platform = "darwin" }
-pywavelets = { version = "^1.4.1", optional = true }
-
-[tool.poetry.extras]
-audio = ["pyannote.audio", "praat-parselmouth", "webrtcvad", "pydub", "wave", "contextlib2", "collection", "torch"]
-radar = ["tensorflow-macos", "pywavelets"]
-
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
-poethepoet = "^0.10.0"
+[tool.uv.sources]
+empkins-io = { path = "../empkins-io", editable = true }
+pepbench = { path = "../pepbench", editable = true }
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.black]
 line-length = 120
-target-version = ['py38']
+target-version = ['py310']
 exclude = '''
 (
   /(
@@ -62,7 +69,6 @@ multi_line_output = 3
 line_length = 120
 skip_gitignore = true
 
-
 [tool.poe.tasks]
 _black = "black ."
 _black_check = "black . --check"
@@ -73,7 +79,7 @@ _isort_check = "isort **/*.py --check-only"
 format = { sequence = ["_black", "_isort"], help = "Format all files." }
 format_check = ["_black_check", "_isort_check"]
 lint = { cmd = "prospector", help = "Lint all files with Prospector." }
-test = { cmd = "pytest --cov=empkins_micro --cov-report=xml", help = "Run Pytest with coverage." }
+test = { cmd = "pytest --cov=src --cov-report=xml", help = "Run Pytest with coverage." }
 docs = { "script" = "_tasks:task_docs" }
 update_version = { "script" = "_tasks:task_update_version" }
 register_ipykernel = { cmd = "python -m ipykernel install --user --name empkins-micro --display-name empkins-micro", help = "Add a new jupyter kernel for the project." }
