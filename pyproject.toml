@@ -5,11 +5,11 @@ description = "A Python package to work with EmpkinS Micro data."
 authors = ["Robert Richer <robert.richer@fau.de>", "Luca Abel <luca.abel@fau.de>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
-biopsykit = { git = "https://github.com/mad-lab-fau/BioPsyKit.git", branch = "main", extras = ["jupyter"] }
+python = ">=3.10,<3.13"
+#biopsykit = { git = "https://github.com/mad-lab-fau/BioPsyKit.git", branch = "main" }
 #empkins-io = { git = "https://github.com/empkins/empkins-io.git", branch = "main" }
 empkins-io = { path = "../empkins-io", develop = true }
-numpy = "^1.24.3"
+pepbench = { path = "../pepbench", develop = true }
 
 "pyannote.audio" = { version = "^2.1.1", optional = true }
 torch = { version = "<2", optional = true }
