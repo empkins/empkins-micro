@@ -28,7 +28,7 @@ DETECTIONTHRESHOLD = 0.05
 
 def get_peak_probabilities(
     radar_data: pd.DataFrame, fs_radar: float, window_size: int,
-) -> bp.utils.datatype_helper.RPeakDataFrame:
+):# -> bp.utils.datatype_helper.RPeakDataFrame:
     data_out = {}
     duration = (radar_data.index[-1] - radar_data.index[0]).total_seconds()
     num_windows = int(duration // window_size)
@@ -51,7 +51,7 @@ def get_peak_probabilities(
 
     processing = Processing(FS=fs_radar, window_size=window_size)
 
-    for wind_ctr in tqdm(range(num_windows)):
+    for wind_ctr in tqdm(range(num_windows - 1)):
         # shift the window by overlap of the window size
         start_sample_radar = int(np.ceil(wind_ctr * (window_size / overlap) * fs_radar))
         end_sample_radar = min(start_sample_radar + int(np.floor(fs_radar * window_size)), len(radar_data))
@@ -88,7 +88,7 @@ def get_peak_probabilities(
 
     return data_concat
 
-def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.2, distance=0.3, outlier_correction=True):
+def get_rpeaks(r_peak_probabilities : dict, fs_radar: float, threshold=0.225, distance=0.3, outlier_correction=True):
 
     data_concat = pd.DataFrame()
     for radar_id in r_peak_probabilities.keys():
